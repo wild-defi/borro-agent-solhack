@@ -22,6 +22,13 @@ Out of scope for the first milestone:
 - Telegram alerts
 - news or sentiment
 
+### Repository Rule
+
+This project's files must be pushed only to:
+- [wild-defi/borro-agent-solhack](https://github.com/wild-defi/borro-agent-solhack)
+
+Do not push these files to any other repository.
+
 ---
 
 ## 2. Target Project Structure

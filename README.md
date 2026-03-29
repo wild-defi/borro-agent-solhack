@@ -184,6 +184,14 @@ Borro Agent matches the `AI + Blockchain: Autonomous Smart Contracts` case becau
 - [Signing and Custody Models](/Users/baki/Documents/AI Agents/Claude/projects/_active/Solhack/Signing_Custody_Models.md)
 - [Hackathon Brief](/Users/baki/Documents/AI Agents/Claude/projects/_active/Solhack/National_Solana_Hackathon_Brief.md)
 
+## Repository Policy
+
+Files in this project must be pushed only to:
+
+- [wild-defi/borro-agent-solhack](https://github.com/wild-defi/borro-agent-solhack)
+
+Do not push this project's files to any other repository.
+
 ## One-Line Pitch
 
 **Borro Agent is an autonomous AI guard for Solana lending positions that prevents liquidation by selecting and executing on-chain protective actions based on market conditions and user risk policy.**
