@@ -179,10 +179,10 @@ Borro Agent matches the `AI + Blockchain: Autonomous Smart Contracts` case becau
 
 ## Repository Documents
 
-- [Architecture & PRD](/Users/baki/Documents/AI Agents/Claude/projects/_active/Solhack/Borro_Agent_Architecture.md)
-- [MVP Backlog](/Users/baki/Documents/AI Agents/Claude/projects/_active/Solhack/MVP_Backlog.md)
-- [Signing and Custody Models](/Users/baki/Documents/AI Agents/Claude/projects/_active/Solhack/Signing_Custody_Models.md)
-- [Hackathon Brief](/Users/baki/Documents/AI Agents/Claude/projects/_active/Solhack/National_Solana_Hackathon_Brief.md)
+- [Architecture & PRD](./Borro_Agent_Architecture.md)
+- [MVP Backlog](./MVP_Backlog.md)
+- [Signing and Custody Models](./Signing_Custody_Models.md)
+- [Hackathon Brief](./National_Solana_Hackathon_Brief.md)
 
 ## Repository Policy
 
