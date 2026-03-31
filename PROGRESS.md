@@ -93,7 +93,7 @@
 ---
 
 ### Phase 4: Anchor Program — State & Instructions
-**Status: 🟡 CORE DONE, DEVNET PENDING** (2026-03-29)
+**Status: ✅ DONE** (2026-03-31)
 
 **Goal:** Deploy Borro Guard program with core instructions.
 
@@ -108,13 +108,20 @@
 - [x] Implement `deposit_buffer`
 - [x] Implement `withdraw_buffer`
 - [x] Write basic tests
-- [ ] Deploy to devnet
+- [x] Deploy to devnet
+
+**Devnet deployment:**
+- Program ID: `7XZ4WDsPMAiJwVGpt52QVk69mQ5HqjcMcobwEyh4s9gv`
+- IDL account: `E6PBzD8EsWMpyTj1yCK7EEqwn8ogi9ourZysgmgivsen`
+- Deploy TX: `2B2sgZc56qcEDSW2gihWhVbyjSzDDvwt94ZFQu6hDtnpz8TX761cAEv5dPzrH3KeEvTwJuo1Lb62tFPCWJFwMoev`
+- Upgrade authority: `3tdnyp3dCq1YaK1kUFTAddxFGquBR5LdpafgwxLtPXK9`
 
 **Verified:**
 - [x] `anchor build` passes
 - [x] `anchor test --skip-build` passes (`4 passing`)
+- [x] Program deployed and confirmed on devnet
 
-**Definition of done:** Policy can be created, updated, paused. Decision log can be written. All via tests. ✅
+**Definition of done:** Policy can be created, updated, paused. Decision log can be written. Program live on devnet. ✅
 
 ---
 
@@ -226,14 +233,14 @@
 
 Must-have sequence:
 1. ✅ Scaffold
-2. ⏳ Wallet connect
-3. Kamino read
-4. Anchor policy account
-5. AI structured decision
-6. Validation layer
-7. REPAY_FROM_BUFFER
-8. Decision log
-9. Demo dashboard
+2. ✅ Wallet connect
+3. ✅ Kamino read
+4. ✅ Anchor policy account (devnet deployed)
+5. ✅ AI structured decision
+6. ✅ Validation layer
+7. 🟡 REPAY_FROM_BUFFER (code done, live e2e pending)
+8. 🔲 Decision history dashboard
+9. 🔲 Demo & documentation
 
 **Can be cut:**
 - Collateral swap (REPAY_WITH_COLLATERAL)
@@ -247,6 +254,6 @@ Must-have sequence:
 
 | # | Milestone | Status |
 |---|-----------|--------|
-| M1 | Connect wallet → view Kamino position → create policy → get AI decision JSON | 🔲 |
-| M2 | Execute REPAY_FROM_BUFFER → show improved health factor (= MVP) | 🔲 |
+| M1 | Connect wallet → view Kamino position → create policy → get AI decision JSON | ✅ |
+| M2 | Execute REPAY_FROM_BUFFER → show improved health factor (= MVP) | 🟡 |
 | M3 | Full demo with UI states, history, and documentation | 🔲 |

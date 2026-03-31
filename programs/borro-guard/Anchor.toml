@@ -8,11 +8,14 @@ skip-lint = false
 [programs.localnet]
 borro_guard = "Hr5SwrbobeDSZHThitPNVarV9xAgDKPWGKyaPz69nVgG"
 
+[programs.devnet]
+borro_guard = "7XZ4WDsPMAiJwVGpt52QVk69mQ5HqjcMcobwEyh4s9gv"
+
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "./tests/fixtures/localnet-wallet.json"
 
 [scripts]

@@ -7,7 +7,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("Hr5SwrbobeDSZHThitPNVarV9xAgDKPWGKyaPz69nVgG");
+declare_id!("7XZ4WDsPMAiJwVGpt52QVk69mQ5HqjcMcobwEyh4s9gv");
 
 #[program]
 pub mod borro_guard {
