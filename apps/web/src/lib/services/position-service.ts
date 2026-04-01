@@ -5,20 +5,36 @@ import {
   calculateVolatilityScore,
 } from "@/lib/risk/metrics";
 
-const MOCK_POSITION: PositionSnapshot = {
-  collateralAsset: "SOL",
-  debtAsset: "USDC",
-  collateralValueUsd: 5200,
+const MOCK_POSITION_BASE = {
+  collateralValueUsd: 4900,
   debtValueUsd: 3800,
-  ltv: 73.1,
-  healthFactor: 1.14,
-  liquidationThreshold: 80,
-  distanceToLiquidation: 8.6,
-  availableBufferUsd: 250,
-  oracleConfidence: 0.95,
-  volatilityScore: 0.6,
-  timestamp: Date.now(),
+  oracleConfidence: 0.89,
+  availableBufferUsd: 300,
 };
+
+function getMockPosition(): PositionSnapshot {
+  const s = MOCK_POSITION_BASE;
+  const liquidationThreshold = 80;
+  const ltv = Number(((s.debtValueUsd / s.collateralValueUsd) * 100).toFixed(2));
+  const healthFactor = Number((liquidationThreshold / ltv).toFixed(2));
+  const distanceToLiquidation = Number((((liquidationThreshold - ltv) / liquidationThreshold) * 100).toFixed(2));
+  const volatilityScore = Number((1 - s.oracleConfidence + (ltv > 70 ? 0.3 : 0)).toFixed(2));
+
+  return {
+    collateralAsset: "SOL",
+    debtAsset: "USDC",
+    collateralValueUsd: s.collateralValueUsd,
+    debtValueUsd: s.debtValueUsd,
+    ltv,
+    healthFactor,
+    liquidationThreshold,
+    distanceToLiquidation,
+    availableBufferUsd: s.availableBufferUsd,
+    oracleConfidence: s.oracleConfidence,
+    volatilityScore,
+    timestamp: Date.now(),
+  };
+}
 
 function toSnapshot(data: KaminoPositionData): PositionSnapshot {
   const distanceToLiquidation = calculateDistanceToLiquidation(
@@ -45,10 +61,10 @@ export async function getPositionSnapshot(
   walletAddress: string,
   useMock = false
 ): Promise<PositionSnapshot> {
-  if (useMock) return MOCK_POSITION;
+  if (useMock) return getMockPosition();
 
   const position = await fetchUserPosition(walletAddress);
-  if (!position) return MOCK_POSITION;
+  if (!position) return getMockPosition();
 
   return toSnapshot(position);
 }

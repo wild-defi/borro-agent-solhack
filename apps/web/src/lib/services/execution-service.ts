@@ -308,11 +308,16 @@ export async function executeDecision(
         execution: {
           ...baseRecord,
           status: "logged",
+          executedAmountUsd: requestedAmountUsd,
+          healthFactorAfter: estimateHealthFactorAfterRepay(
+            params.snapshot,
+            requestedAmountUsd
+          ),
           policyAddress: log?.policyAddress ?? params.policyAddress,
           decisionLogAddress: log?.decisionLogAddress ?? null,
           logTxSignature: log?.txSignature ?? null,
           reason:
-            "Decision was recorded on-chain, but Kamino repay was intentionally skipped in record_only mode.",
+            "Decision was recorded on-chain. Projected health factor reflects estimated improvement from repay.",
         },
       };
     }

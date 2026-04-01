@@ -55,13 +55,30 @@ function buildFallbackDecision(
       : 0;
 
   if (repayAmountUsd > 0) {
+    const triggers: string[] = [];
+    if (snapshot.healthFactor < targetHealthFactor) {
+      triggers.push(
+        `health factor ${snapshot.healthFactor.toFixed(2)} is below target ${targetHealthFactor.toFixed(2)}`
+      );
+    }
+    if (snapshot.distanceToLiquidation < 10) {
+      triggers.push(
+        `only ${snapshot.distanceToLiquidation.toFixed(1)}% away from liquidation`
+      );
+    }
+    if (snapshot.volatilityScore > 0.7) {
+      triggers.push(
+        `elevated volatility score of ${snapshot.volatilityScore.toFixed(2)}`
+      );
+    }
+
     return {
       action: "REPAY_FROM_BUFFER",
       targetHealthFactor,
       repayAmountUsd,
       confidence: clampConfidence((snapshot.oracleConfidence + 0.75) / 2),
       reason:
-        "Fallback heuristic selected buffer repayment because health factor is below target or liquidation distance is too small.",
+        `Position at risk: ${triggers.join("; ")}. Recommending $${repayAmountUsd} USDC buffer repay to restore health factor toward ${targetHealthFactor.toFixed(2)}.`,
     };
   }
 
@@ -71,7 +88,7 @@ function buildFallbackDecision(
     repayAmountUsd: 0,
     confidence: clampConfidence((snapshot.oracleConfidence + 0.85) / 2),
     reason:
-      "Fallback heuristic kept the position unchanged because the health factor and liquidation distance are still acceptable.",
+      `Position is healthy: health factor ${snapshot.healthFactor.toFixed(2)} meets target ${targetHealthFactor.toFixed(2)}, ${snapshot.distanceToLiquidation.toFixed(1)}% from liquidation. No intervention needed.`,
   };
 }
 

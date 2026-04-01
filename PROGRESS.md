@@ -197,17 +197,40 @@
 ---
 
 ### Phase 8: Dashboard — Decision History & States
-**Status: 🔲 TODO**
+**Status: ✅ DONE** (2026-04-01)
 
 **Goal:** Dashboard shows the full decision-to-execution flow for the judges.
 
 **Tasks:**
-- [ ] Create `src/components/dashboard/ai-decision-card.tsx`
-- [ ] Create `src/components/dashboard/execution-history.tsx`
-- [ ] Implement UI states: idle → monitoring → decision_ready → validating → executing → executed
-- [ ] Show tx signature link to Solscan
+- [x] Create `src/components/dashboard/ai-decision-card.tsx`
+- [x] Create `src/components/dashboard/execution-history.tsx`
+- [x] Implement UI states: idle → monitoring → decision_ready → executing → executed
+- [x] Show tx signature link to Solscan
+- [x] Position Analysis block — 5 risk signals with color indicators (HF, distance to liq, volatility, oracle confidence, buffer)
+- [x] Improved AI reason text — context-specific instead of generic
+- [x] GPT-4o-mini integration — real AI decisions via OpenAI API
 
-**Definition of done:** Judges can watch the process from risk detection to on-chain action.
+**Verified:**
+- [x] Mock mode: full flow works (Run Check → Decision → Execute → History)
+- [x] Record_only mode: decision logged on-chain, Solscan TX link shown
+- [x] `next build --webpack` passes
+
+**Definition of done:** Judges can watch the process from risk detection to on-chain action. ✅
+
+---
+
+### Phase 8.5: Demo Polish
+**Status: 🟡 IN PROGRESS** (2026-03-31)
+
+**Goal:** Maximize demo impact for judges.
+
+**Tasks:**
+- [x] GPT-4o-mini connected — real AI reasoning
+- [x] Worker autonomous demo — monitor loop with randomized scenarios, configurable interval, structured logging
+- [x] Stepper/timeline UI — visual flow: Detect → Analyze → Decide → Validate → Execute (progress dots + connecting lines)
+- [x] "Verified on Solana" badge — emerald badge with Solscan links after on-chain execution
+- [x] Counterfactual — "Without Borro: liquidation at X%. With Borro: safe until Y%" comparison card
+- [x] Randomized mock scenarios — 5 scenarios cycling: CRITICAL, HIGH RISK, MODERATE, SAFE, RECOVERING
 
 ---
 
@@ -216,12 +239,18 @@
 
 **Goal:** Demo-ready product with documentation.
 
-**Tasks:**
+#### Priority 1 — Must Do
+- [ ] **README.md** — architecture diagram, screenshots, "AI vs deterministic logic" section, setup instructions
+- [ ] **Expanded AI reasoning in UI** — show signal breakdown (HF, volatility, oracle, buffer) that AI weighed, not just one-line reason
+- [ ] **Demo video (90s)** — full cycle: connect wallet → AI decision → on-chain tx → Solscan link
 - [ ] Write `docs/demo-script.md` — step-by-step demo scenario
 - [ ] Write `docs/known-risks.md` — what's mocked, what's real, what's next
-- [ ] Update `README.md` with setup instructions
-- [ ] Prepare demo wallet with risky Kamino position on devnet
-- [ ] Record demo video (optional)
+
+#### Priority 2 — If Time Allows
+- [ ] **"Enable AI Guard" button** — on-chain policy creation from UI (user signs tx → PolicyAccount created)
+- [ ] **"View AI Reasoning" toggle** — show full AI input/output pipeline on decision card
+
+#### Submission
 - [ ] Submit to Google Forms
 - [ ] Submit to Colosseum
 
@@ -236,11 +265,12 @@ Must-have sequence:
 2. ✅ Wallet connect
 3. ✅ Kamino read
 4. ✅ Anchor policy account (devnet deployed)
-5. ✅ AI structured decision
+5. ✅ AI structured decision (GPT-4o-mini connected)
 6. ✅ Validation layer
-7. 🟡 REPAY_FROM_BUFFER (code done, live e2e pending)
-8. 🔲 Decision history dashboard
-9. 🔲 Demo & documentation
+7. ✅ REPAY_FROM_BUFFER (mock + record_only on devnet)
+8. ✅ Decision history dashboard + Position Analysis
+9. ✅ Demo polish (stepper, counterfactual, worker demo, verified badge, randomized scenarios)
+10. 🔲 Demo & documentation
 
 **Can be cut:**
 - Collateral swap (REPAY_WITH_COLLATERAL)
@@ -255,5 +285,5 @@ Must-have sequence:
 | # | Milestone | Status |
 |---|-----------|--------|
 | M1 | Connect wallet → view Kamino position → create policy → get AI decision JSON | ✅ |
-| M2 | Execute REPAY_FROM_BUFFER → show improved health factor (= MVP) | 🟡 |
-| M3 | Full demo with UI states, history, and documentation | 🔲 |
+| M2 | Execute REPAY_FROM_BUFFER → show improved health factor (= MVP) | ✅ |
+| M3 | Full demo with UI states, history, and documentation | 🟡 |

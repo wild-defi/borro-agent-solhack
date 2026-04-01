@@ -1,7 +1,13 @@
 "use client";
 
-export default function BufferCard() {
-  const bufferBalance = 250;
+import type { PositionSnapshot } from "@/lib/types";
+
+export default function BufferCard({
+  snapshot,
+}: {
+  snapshot?: PositionSnapshot | null;
+}) {
+  const bufferBalance = snapshot?.availableBufferUsd ?? 0;
   const bufferAsset = "USDC";
 
   return (

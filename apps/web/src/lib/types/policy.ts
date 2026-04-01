@@ -17,3 +17,14 @@ export interface Policy {
   cooldownSeconds: number;
   enabled: boolean;
 }
+
+export type PolicyConfig = Pick<
+  Policy,
+  | "riskProfile"
+  | "targetHealthFactor"
+  | "allowedActions"
+  | "maxRepayPerActionUsd"
+  | "maxDailyInterventionUsd"
+  | "cooldownSeconds"
+  | "enabled"
+>;

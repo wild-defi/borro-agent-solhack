@@ -133,13 +133,7 @@ async function getProgram(): Promise<{
   const provider = new AnchorProvider(connection, wallet, {
     commitment: "confirmed",
   });
-  const programId = new PublicKey(
-    process.env.BORRO_PROGRAM_ID ??
-      process.env.NEXT_PUBLIC_BORRO_PROGRAM_ID ??
-      (idl as Idl & { address?: string }).address ??
-      ""
-  );
-  const program = new Program(idl, programId, provider);
+  const program = new Program(idl, provider);
 
   return { program, provider, wallet };
 }

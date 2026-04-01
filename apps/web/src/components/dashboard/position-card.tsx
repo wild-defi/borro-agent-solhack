@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
 import type { PositionSnapshot } from "@/lib/types";
 
 function riskColor(hf: number) {
@@ -16,31 +14,14 @@ function riskBadge(hf: number) {
   return { label: "SAFE", bg: "bg-emerald-500/20 text-emerald-400" };
 }
 
-export default function PositionCard() {
-  const { publicKey } = useWallet();
-  const [pos, setPos] = useState<PositionSnapshot | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!publicKey) return;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(
-          `/api/position?wallet=${publicKey.toBase58()}&mock=true`
-        );
-        const data = await res.json();
-        setPos(data);
-      } catch (err) {
-        console.error("Failed to load position:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, [publicKey]);
+export default function PositionCard({
+  snapshot,
+  loading = false,
+}: {
+  snapshot?: PositionSnapshot | null;
+  loading?: boolean;
+}) {
+  const pos = snapshot ?? null;
 
   if (loading) {
     return (
