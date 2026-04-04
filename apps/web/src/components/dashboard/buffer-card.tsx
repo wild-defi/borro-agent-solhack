@@ -4,8 +4,14 @@ import type { PositionSnapshot } from "@/lib/types";
 
 export default function BufferCard({
   snapshot,
+  onDeposit,
+  onWithdraw,
+  disabled = false,
 }: {
   snapshot?: PositionSnapshot | null;
+  onDeposit?: () => void;
+  onWithdraw?: () => void;
+  disabled?: boolean;
 }) {
   const bufferBalance = snapshot?.availableBufferUsd ?? 0;
   const bufferAsset = "USDC";
@@ -17,6 +23,7 @@ export default function BufferCard({
         Reserve USDC for fast repayment without selling collateral
       </p>
 
+
       <div className="mt-4 flex items-end justify-between">
         <div>
           <p className="text-sm text-zinc-500">Available</p>
@@ -26,10 +33,20 @@ export default function BufferCard({
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800">
+          <button
+            type="button"
+            disabled={disabled || !onWithdraw || bufferBalance <= 0}
+            onClick={onWithdraw}
+            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+          >
             Withdraw
           </button>
-          <button className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500">
+          <button
+            type="button"
+            disabled={disabled || !onDeposit}
+            onClick={onDeposit}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+          >
             Deposit
           </button>
         </div>

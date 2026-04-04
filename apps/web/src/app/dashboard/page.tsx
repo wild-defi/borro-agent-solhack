@@ -1,14 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import {
+  useAnchorWallet,
+  useConnection,
+  useWallet,
+} from "@solana/wallet-adapter-react";
 import ConnectWalletButton from "@/components/wallet/connect-wallet-button";
 import PositionCard from "@/components/dashboard/position-card";
 import PolicyForm from "@/components/dashboard/policy-form";
 import BufferCard from "@/components/dashboard/buffer-card";
 import AIDecisionCard from "@/components/dashboard/ai-decision-card";
+import SetupWizard from "@/components/dashboard/setup-wizard";
+import AgentStatusCard from "@/components/dashboard/agent-status-card";
 import type { AgentStatus } from "@/components/dashboard/ai-decision-card";
 import ExecutionHistory from "@/components/dashboard/execution-history";
+import {
+  fetchPolicyConfig,
+  initializePolicyOnChain,
+  type BorroClientConfig,
+  updatePolicyOnChain,
+} from "@/lib/solana/borro-program-client";
 import type {
   AIDecision,
   DecisionValidationResult,
@@ -18,7 +30,7 @@ import type {
 } from "@/lib/types";
 
 const DEFAULT_POLICY: PolicyConfig = {
-  enabled: true,
+  enabled: false,
   riskProfile: "balanced",
   targetHealthFactor: 1.25,
   allowedActions: ["DO_NOTHING", "REPAY_FROM_BUFFER"],
@@ -79,12 +91,22 @@ function applyExecutionToSnapshot(
 
 export default function DashboardPage() {
   const { connected, publicKey } = useWallet();
+  const { connection } = useConnection();
+  const anchorWallet = useAnchorWallet();
 
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
   const [positionLoading, setPositionLoading] = useState(false);
   const [currentSnapshot, setCurrentSnapshot] =
     useState<PositionSnapshot | null>(null);
+  const [borroConfig, setBorroConfig] = useState<BorroClientConfig | null>(null);
   const [currentPolicy, setCurrentPolicy] = useState<PolicyConfig>(DEFAULT_POLICY);
+  const [currentPolicyAddress, setCurrentPolicyAddress] = useState<string | null>(
+    null
+  );
+  const [policySyncStatus, setPolicySyncStatus] = useState<
+    "idle" | "loading" | "saving" | "saved" | "error"
+  >("idle");
+  const [policySyncError, setPolicySyncError] = useState<string | null>(null);
   const [currentRawDecision, setCurrentRawDecision] =
     useState<AIDecision | null>(null);
   const [currentDecision, setCurrentDecision] = useState<AIDecision | null>(
@@ -98,6 +120,41 @@ export default function DashboardPage() {
     []
   );
   const [error, setError] = useState<string | null>(null);
+  const hasOnChainPolicy = Boolean(currentPolicyAddress);
+  const isGuardActive = hasOnChainPolicy && currentPolicy.enabled;
+  const isPolicyConfigured = currentPolicy.enabled;
+  const hasFundedBuffer = (currentSnapshot?.availableBufferUsd ?? 0) > 0;
+
+  const resetAssessmentState = useCallback(() => {
+    setAgentStatus("idle");
+    setCurrentRawDecision(null);
+    setCurrentDecision(null);
+    setCurrentValidation(null);
+    setCurrentExecution(null);
+    setError(null);
+  }, []);
+
+  const loadBorroConfig = useCallback(async () => {
+    try {
+      const response = await fetch("/api/borro/config");
+      const data = (await response.json()) as BorroClientConfig & {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to load Borro config");
+      }
+
+      setBorroConfig(data);
+      setPolicySyncError(null);
+    } catch (err) {
+      setBorroConfig(null);
+      setPolicySyncStatus("error");
+      setPolicySyncError(
+        err instanceof Error ? err.message : "Failed to load Borro config"
+      );
+    }
+  }, []);
 
   const loadPosition = useCallback(async () => {
     if (!publicKey) {
@@ -129,28 +186,85 @@ export default function DashboardPage() {
     }
   }, [publicKey]);
 
+  const loadOnChainPolicy = useCallback(
+    async (obligationAddress: string) => {
+      if (!anchorWallet || !publicKey) {
+        return;
+      }
+
+      setPolicySyncStatus("loading");
+      setPolicySyncError(null);
+
+      try {
+        const record = await fetchPolicyConfig(
+          connection,
+          anchorWallet,
+          publicKey.toBase58(),
+          obligationAddress
+        );
+
+        if (record) {
+          setCurrentPolicy(record.policy);
+          setCurrentPolicyAddress(record.policyAddress);
+          setPolicySyncStatus("saved");
+          return;
+        }
+
+        setCurrentPolicy(DEFAULT_POLICY);
+        setCurrentPolicyAddress(null);
+        setPolicySyncStatus("idle");
+      } catch (err) {
+        setCurrentPolicyAddress(null);
+        setPolicySyncStatus("error");
+        setPolicySyncError(
+          err instanceof Error ? err.message : "Failed to load on-chain policy"
+        );
+      }
+    },
+    [anchorWallet, connection, publicKey]
+  );
+
+  useEffect(() => {
+    void loadBorroConfig();
+  }, [loadBorroConfig]);
+
   useEffect(() => {
     if (!connected || !publicKey) {
       setPositionLoading(false);
       setCurrentSnapshot(null);
-      setCurrentRawDecision(null);
-      setCurrentDecision(null);
-      setCurrentValidation(null);
-      setCurrentExecution(null);
+      setCurrentPolicy(DEFAULT_POLICY);
+      setCurrentPolicyAddress(null);
+      setPolicySyncStatus("idle");
+      setPolicySyncError(null);
       setExecutionHistory([]);
-      setError(null);
-      setAgentStatus("idle");
+      resetAssessmentState();
       return;
     }
 
-    setCurrentDecision(null);
-    setCurrentRawDecision(null);
-    setCurrentValidation(null);
-    setCurrentExecution(null);
+    resetAssessmentState();
     setExecutionHistory([]);
-    setAgentStatus("idle");
     void loadPosition();
-  }, [connected, publicKey, loadPosition]);
+  }, [connected, publicKey, loadPosition, resetAssessmentState]);
+
+  useEffect(() => {
+    if (!connected || !publicKey || !anchorWallet) {
+      return;
+    }
+
+    const obligationAddress = currentSnapshot?.obligationAddress;
+
+    if (!obligationAddress) {
+      return;
+    }
+
+    void loadOnChainPolicy(obligationAddress);
+  }, [
+    anchorWallet,
+    connected,
+    currentSnapshot?.obligationAddress,
+    loadOnChainPolicy,
+    publicKey,
+  ]);
 
   const handleRunCheck = useCallback(async () => {
     if (!publicKey || !currentSnapshot) return;
@@ -188,7 +302,9 @@ export default function DashboardPage() {
   }, [publicKey, currentSnapshot, currentPolicy]);
 
   const handleExecute = useCallback(async () => {
-    if (!publicKey || !currentSnapshot || !currentDecision) return;
+    if (!publicKey || !currentSnapshot || !currentDecision || !isGuardActive) {
+      return;
+    }
     setAgentStatus("executing");
     setError(null);
 
@@ -202,6 +318,7 @@ export default function DashboardPage() {
           snapshot: currentSnapshot,
           decision: currentDecision,
           policy: currentPolicy,
+          policyAddress: currentPolicyAddress ?? undefined,
         }),
       });
       const data = await res.json();
@@ -223,26 +340,128 @@ export default function DashboardPage() {
       setError(err instanceof Error ? err.message : "Network error");
       setAgentStatus("decision_ready");
     }
-  }, [publicKey, currentSnapshot, currentDecision, currentPolicy]);
+  }, [
+    publicKey,
+    currentSnapshot,
+    currentDecision,
+    currentPolicy,
+    currentPolicyAddress,
+    isGuardActive,
+  ]);
 
   const handlePolicyChange = useCallback((policy: PolicyConfig) => {
     setCurrentPolicy(policy);
-    setAgentStatus("idle");
-    setCurrentRawDecision(null);
-    setCurrentDecision(null);
-    setCurrentValidation(null);
-    setCurrentExecution(null);
-    setError(null);
-  }, []);
+    setPolicySyncStatus("idle");
+    setPolicySyncError(null);
+    resetAssessmentState();
+  }, [resetAssessmentState]);
+
+  const syncPolicyOnChain = useCallback(async (policyToSync: PolicyConfig) => {
+    if (!anchorWallet || !publicKey || !currentSnapshot?.obligationAddress) {
+      setPolicySyncStatus("error");
+      setPolicySyncError(
+        "Connect a wallet and load a position before enabling AI Guard on-chain."
+      );
+      return;
+    }
+
+    if (!borroConfig) {
+      setPolicySyncStatus("error");
+      setPolicySyncError("Borro config is unavailable.");
+      return;
+    }
+
+    setPolicySyncStatus("saving");
+    setPolicySyncError(null);
+
+    try {
+      if (currentPolicyAddress) {
+        await updatePolicyOnChain({
+          connection,
+          wallet: anchorWallet,
+          policyAddress: currentPolicyAddress,
+          config: borroConfig,
+          policy: policyToSync,
+        });
+      } else {
+        const result = await initializePolicyOnChain({
+          connection,
+          wallet: anchorWallet,
+          obligationAddress: currentSnapshot.obligationAddress,
+          config: borroConfig,
+          policy: policyToSync,
+        });
+        setCurrentPolicyAddress(result.policyAddress);
+      }
+
+      await loadOnChainPolicy(currentSnapshot.obligationAddress);
+      setPolicySyncStatus("saved");
+    } catch (err) {
+      setPolicySyncStatus("error");
+      setPolicySyncError(
+        err instanceof Error ? err.message : "Failed to sync policy on-chain"
+      );
+    }
+  }, [
+    anchorWallet,
+    borroConfig,
+    connection,
+    currentPolicyAddress,
+    currentSnapshot?.obligationAddress,
+    loadOnChainPolicy,
+    publicKey,
+  ]);
+
+  const handleSyncPolicyOnChain = useCallback(async () => {
+    await syncPolicyOnChain(currentPolicy);
+  }, [currentPolicy, syncPolicyOnChain]);
+
+  const handleActivateGuard = useCallback(async () => {
+    const enabledPolicy = { ...currentPolicy, enabled: true };
+    setCurrentPolicy(enabledPolicy);
+    await syncPolicyOnChain(enabledPolicy);
+  }, [currentPolicy, syncPolicyOnChain]);
+
+  const handlePauseGuard = useCallback(async () => {
+    const pausedPolicy = { ...currentPolicy, enabled: false };
+    setCurrentPolicy(pausedPolicy);
+    await syncPolicyOnChain(pausedPolicy);
+    resetAssessmentState();
+  }, [currentPolicy, syncPolicyOnChain, resetAssessmentState]);
+
+  const handleDepositBuffer = useCallback(() => {
+    setCurrentSnapshot((prev) =>
+      prev
+        ? {
+            ...prev,
+            availableBufferUsd: Number(
+              (prev.availableBufferUsd + 300).toFixed(2)
+            ),
+            timestamp: Date.now(),
+          }
+        : prev
+    );
+    resetAssessmentState();
+  }, [resetAssessmentState]);
+
+  const handleWithdrawBuffer = useCallback(() => {
+    setCurrentSnapshot((prev) =>
+      prev
+        ? {
+            ...prev,
+            availableBufferUsd: Number(
+              Math.max(0, prev.availableBufferUsd - 300).toFixed(2)
+            ),
+            timestamp: Date.now(),
+          }
+        : prev
+    );
+    resetAssessmentState();
+  }, [resetAssessmentState]);
 
   const handleReset = useCallback(() => {
-    setAgentStatus("idle");
-    setCurrentRawDecision(null);
-    setCurrentDecision(null);
-    setCurrentValidation(null);
-    setCurrentExecution(null);
-    setError(null);
-  }, []);
+    resetAssessmentState();
+  }, [resetAssessmentState]);
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
@@ -264,22 +483,78 @@ export default function DashboardPage() {
             {publicKey?.toBase58().slice(-4)}
           </p>
           <PositionCard snapshot={currentSnapshot} loading={positionLoading} />
-          <AIDecisionCard
-            status={agentStatus}
-            snapshot={currentSnapshot}
-            policy={currentPolicy}
-            rawDecision={currentRawDecision}
-            decision={currentDecision}
-            validation={currentValidation}
-            execution={currentExecution}
-            error={error}
-            onRunCheck={handleRunCheck}
-            onExecute={handleExecute}
-            onReset={handleReset}
-          />
-          <PolicyForm policy={currentPolicy} onChange={handlePolicyChange} />
-          <BufferCard snapshot={currentSnapshot} />
-          <ExecutionHistory records={executionHistory} />
+
+          {!isGuardActive ? (
+            <>
+              <SetupWizard
+                snapshot={currentSnapshot}
+                policy={currentPolicy}
+                policyAddress={currentPolicyAddress}
+                syncStatus={policySyncStatus}
+                syncError={policySyncError}
+                syncDisabled={
+                  !anchorWallet ||
+                  !currentSnapshot?.obligationAddress
+                }
+                onPolicyChange={handlePolicyChange}
+                onSyncOnChain={handleActivateGuard}
+                onDeposit={handleDepositBuffer}
+                onWithdraw={handleWithdrawBuffer}
+              />
+              <ExecutionHistory records={executionHistory} />
+            </>
+          ) : (
+            <>
+              <AgentStatusCard
+                snapshot={currentSnapshot}
+                policy={currentPolicy}
+                policyAddress={currentPolicyAddress!}
+                agentStatus={agentStatus}
+                currentDecision={currentDecision}
+                currentExecution={currentExecution}
+                interventionCount={executionHistory.filter(
+                  (r) => r.status !== "rejected" && r.status !== "failed"
+                ).length}
+                onRunCheck={handleRunCheck}
+                onDeposit={handleDepositBuffer}
+                onPauseGuard={handlePauseGuard}
+              />
+              <AIDecisionCard
+                title="Last AI Assessment"
+                status={agentStatus}
+                snapshot={currentSnapshot}
+                policy={currentPolicy}
+                rawDecision={currentRawDecision}
+                decision={currentDecision}
+                validation={currentValidation}
+                execution={currentExecution}
+                error={error}
+                onRunCheck={handleRunCheck}
+                onExecute={handleExecute}
+                onReset={handleReset}
+              />
+              <BufferCard
+                snapshot={currentSnapshot}
+                onDeposit={handleDepositBuffer}
+                onWithdraw={handleWithdrawBuffer}
+              />
+              <ExecutionHistory records={executionHistory} />
+              <PolicyForm
+                policy={currentPolicy}
+                onChange={handlePolicyChange}
+                policyAddress={currentPolicyAddress}
+                syncStatus={policySyncStatus}
+                syncError={policySyncError}
+                syncDisabled={
+                  !anchorWallet ||
+                  !currentSnapshot?.obligationAddress ||
+                  (!currentPolicy.enabled && !currentPolicyAddress)
+                }
+                onSyncOnChain={handleSyncPolicyOnChain}
+                onPauseGuard={handlePauseGuard}
+              />
+            </>
+          )}
         </div>
       )}
     </div>

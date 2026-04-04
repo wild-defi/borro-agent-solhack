@@ -27,6 +27,7 @@ export async function getMarket(): Promise<KaminoMarket> {
 }
 
 export interface KaminoPositionData {
+  obligationAddress?: string | null;
   collateralAsset: string;
   debtAsset: string;
   collateralValueUsd: number;
@@ -34,6 +35,36 @@ export interface KaminoPositionData {
   ltv: number;
   healthFactor: number;
   liquidationThreshold: number;
+}
+
+function extractObligationAddress(obligation: unknown): string | null {
+  if (!obligation || typeof obligation !== "object") {
+    return null;
+  }
+
+  const candidateKeys = ["address", "obligationAddress", "pubkey"] as const;
+
+  for (const key of candidateKeys) {
+    const value = (obligation as Record<string, unknown>)[key];
+
+    if (typeof value === "string" && value.length > 0) {
+      return value;
+    }
+
+    if (
+      value &&
+      typeof value === "object" &&
+      "toString" in value &&
+      typeof value.toString === "function"
+    ) {
+      const encoded = value.toString();
+      if (encoded && encoded !== "[object Object]") {
+        return encoded;
+      }
+    }
+  }
+
+  return null;
 }
 
 export async function fetchUserPosition(
@@ -84,8 +115,10 @@ export async function fetchUserPosition(
     const debtSymbol = firstBorrow?.reserveAddress
       ? market.getReserveByAddress(firstBorrow.reserveAddress)?.symbol ?? "USDC"
       : "USDC";
+    const obligationAddress = extractObligationAddress(obligation);
 
     return {
+      obligationAddress,
       collateralAsset: collateralSymbol,
       debtAsset: debtSymbol,
       collateralValueUsd: depositValue,

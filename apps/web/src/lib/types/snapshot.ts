@@ -1,4 +1,5 @@
 export interface PositionSnapshot {
+  obligationAddress?: string | null;
   collateralAsset: string;
   debtAsset: string;
   collateralValueUsd: number;

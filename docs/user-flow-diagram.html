@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Borro Agent — User Flow</title>
+  <style>
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+    .subtitle {
+      text-align: center;
+      color: #888;
+      font-size: 14px;
+      margin-bottom: 30px;
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+    }
+    .mermaid svg {
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>Borro Agent — Full User Flow</h1>
+  <p class="subtitle">Autonomous AI Risk Manager for Solana Lending Positions</p>
+
+  <div class="mermaid">
+flowchart TD
+    classDef userAction fill:#1a365d,stroke:#3182ce,color:#fff
+    classDef system fill:#1a202c,stroke:#4a5568,color:#e2e8f0
+    classDef ai fill:#322659,stroke:#805ad5,color:#fff
+    classDef onchain fill:#1c4532,stroke:#38a169,color:#fff
+    classDef validation fill:#744210,stroke:#d69e2e,color:#fff
+    classDef error fill:#63171b,stroke:#e53e3e,color:#fff
+    classDef mode fill:#0d4046,stroke:#319795,color:#fff
+
+    START([User opens borro.app]):::userAction
+    START --> LAND[Landing Page]:::system
+    LAND --> CONNECT[Connect Phantom Wallet]:::userAction
+    CONNECT --> LOAD_POS[Load Kamino Position\ncollateral · debt · LTV · HF]:::system
+    LOAD_POS --> LOAD_POLICY[Fetch on-chain PolicyAccount\nBorro Guard PDA lookup]:::onchain
+
+    LOAD_POLICY --> CHECK_GUARD{AI Guard\nactive on-chain?}:::system
+
+    %% ═══════════════════════════════════
+    %% SETUP MODE
+    %% ═══════════════════════════════════
+    CHECK_GUARD -- No --> SETUP_MODE
+
+    subgraph SETUP_MODE [" SETUP MODE "]
+        direction TB
+        CHECKLIST[Setup Checklist\n1. Position loaded\n2. Policy configured\n3. Buffer funded\n4. Guard enabled on-chain]:::system
+
+        CHECKLIST --> PICK_PRESET[Choose Risk Preset]:::userAction
+        PICK_PRESET --> CONS[Conservative\nHF 1.35 · max $300]:::mode
+        PICK_PRESET --> BAL[Balanced\nHF 1.25 · max $500]:::mode
+        PICK_PRESET --> AGG[Aggressive\nHF 1.15 · max $1000]:::mode
+
+        CONS & BAL & AGG --> TUNE[Fine-tune parameters\ntarget HF · allowed actions\nmax repay · daily limit · cooldown]:::userAction
+        TUNE --> TOGGLE[Enable policy toggle ON]:::userAction
+
+        TOGGLE --> BUFFER[Deposit USDC into Safety Buffer]:::userAction
+
+        BUFFER --> ENABLE_BTN[Enable AI Guard On-Chain]:::userAction
+        ENABLE_BTN --> SIGN_TX[Sign TX via Phantom\ninitialize_policy instruction]:::onchain
+        SIGN_TX --> SOL_CHECK{Enough devnet\nSOL for rent?}:::validation
+        SOL_CHECK -- No --> SOL_ERR[Error: fund wallet\nwith devnet SOL]:::error
+        SOL_CHECK -- Yes --> POLICY_CREATED[PolicyAccount created\non Borro Guard program]:::onchain
+    end
+
+    POLICY_CREATED --> ACTIVE_MODE
+
+    %% ═══════════════════════════════════
+    %% ACTIVE MONITORING MODE
+    %% ═══════════════════════════════════
+    CHECK_GUARD -- Yes --> ACTIVE_MODE
+
+    subgraph ACTIVE_MODE [" ACTIVE MONITORING MODE "]
+        direction TB
+        STATUS[Agent Status: idle]:::system
+        STATUS --> RUN_CHECK[User clicks Run Check]:::userAction
+
+        RUN_CHECK --> STEP1[Step 1: Detect\nFetch latest position snapshot]:::system
+        STEP1 --> STEP2[Step 2: Analyze\n5 risk signals]:::ai
+        STEP2 --> SIGNALS[Health Factor\nDistance to Liquidation\nVolatility Score\nOracle Confidence\nBuffer Availability]:::ai
+
+        SIGNALS --> STEP3[Step 3: Decide\nGPT-4o-mini structured output]:::ai
+        STEP3 --> AI_OUT[AI Decision JSON\naction · target_hf · repay_amount\nconfidence · reason]:::ai
+
+        AI_OUT --> STEP4[Step 4: Validate]:::validation
+
+        subgraph RULES [" Validation Rules "]
+            direction LR
+            V1[Policy\nenabled?]:::validation
+            V2[Cooldown\npassed?]:::validation
+            V3[Confidence\n≥ threshold?]:::validation
+            V4[Action\nallowed?]:::validation
+            V5[Amount\n≤ caps?]:::validation
+            V6[Buffer\navailable?]:::validation
+        end
+
+        STEP4 --> RULES
+        RULES --> APPROVED{Approved?}:::validation
+        APPROVED -- No --> REJECTED[DO_NOTHING\nwith rejection reason]:::error
+        APPROVED -- Yes --> VALIDATED[Validated Decision\namount may be capped]:::system
+
+        REJECTED --> SHOW_CARD
+        VALIDATED --> SHOW_CARD
+
+        SHOW_CARD[AI Decision Card\nraw vs validated · counterfactual\nView AI Reasoning toggle]:::system
+
+        SHOW_CARD --> ACTION_TYPE{Action type?}:::system
+        ACTION_TYPE -- DO_NOTHING --> IDLE_AGAIN[Show reason · Reset to idle]:::system
+        ACTION_TYPE -- REPAY_FROM_BUFFER --> EXEC_BTN[User clicks Execute]:::userAction
+
+        EXEC_BTN --> STEP5[Step 5: Execute]:::onchain
+        STEP5 --> EXEC_MODE{Execution mode}:::system
+
+        EXEC_MODE --> MOCK[Mock\nsimulate without TX]:::mode
+        EXEC_MODE --> RECORD[Record Only\nlog on-chain via Borro Guard]:::mode
+        EXEC_MODE --> REAL[Kamino Repay\nreal repay TX via Kamino SDK]:::mode
+
+        MOCK & RECORD & REAL --> UPDATE[Update Position Snapshot\ndebt ↓ · buffer ↓ · LTV ↓ · HF ↑]:::system
+        UPDATE --> HISTORY[Execution History\naction · amount · TX signature\nSolscan link · Verified badge]:::onchain
+
+        HISTORY --> IDLE_AGAIN2[Status: executed · Reset → idle]:::system
+    end
+
+    %% ═══════════════════════════════════
+    %% AUTONOMOUS WORKER
+    %% ═══════════════════════════════════
+    subgraph WORKER [" AUTONOMOUS WORKER — workers/monitor "]
+        direction LR
+        W1[Fetch Position]:::system --> W2[Build Snapshot]:::system
+        W2 --> W3[AI Decision]:::ai
+        W3 --> W4[Validate]:::validation
+        W4 --> W5[Execute]:::onchain
+        W5 --> W6[Log]:::system
+        W6 -->|interval loop| W1
+    end
+  </div>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      flowchart: {
+        curve: 'basis',
+        padding: 20,
+        nodeSpacing: 30,
+        rankSpacing: 40,
+        useMaxWidth: true,
+      },
+      themeVariables: {
+        fontSize: '13px',
+        primaryColor: '#1a365d',
+        primaryTextColor: '#e2e8f0',
+        primaryBorderColor: '#3182ce',
+        lineColor: '#4a5568',
+        secondaryColor: '#322659',
+        tertiaryColor: '#1c4532',
+      }
+    });
+  </script>
+</body>
+</html>

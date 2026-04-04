@@ -226,29 +226,51 @@
 
 **Tasks:**
 - [x] GPT-4o-mini connected — real AI reasoning
-- [x] Worker autonomous demo — monitor loop with randomized scenarios, configurable interval, structured logging
+- [x] Worker autonomous demo — monitor loop, configurable interval, structured logging
 - [x] Stepper/timeline UI — visual flow: Detect → Analyze → Decide → Validate → Execute (progress dots + connecting lines)
 - [x] "Verified on Solana" badge — emerald badge with Solscan links after on-chain execution
 - [x] Counterfactual — "Without Borro: liquidation at X%. With Borro: safe until Y%" comparison card
-- [x] Randomized mock scenarios — 5 scenarios cycling: CRITICAL, HIGH RISK, MODERATE, SAFE, RECOVERING
+- [x] Fixed critical demo snapshot — one stable mock position with HF slightly above 1.0 for consistent judge demos
+- [x] Position consistency fix — AI check now analyzes the exact snapshot shown in the position card
+- [x] Dynamic snapshot updates after execution — debt, buffer, LTV, and HF update after mock/recorded repay
+- [x] Policy presets — Conservative / Balanced / Aggressive now update visible policy parameters instead of acting as hidden state only
+- [x] State-based dashboard flow — separate setup mode from active monitoring mode
+- [x] Setup checklist UI — position, policy, buffer, and on-chain enablement shown as explicit onboarding steps
+- [x] Honest setup defaults — policy toggle starts OFF and buffer starts at $0 instead of appearing preconfigured
+- [x] Policy configuration fix — clicking risk presets no longer marks the policy as configured until the toggle is enabled
+- [x] Demo buffer controls — Deposit / Withdraw now change the mock buffer in setup mode for onboarding demos
+- [x] Preview recommendation card removed from setup flow to keep onboarding simpler and less misleading
+- [x] Devnet SOL preflight for `Enable AI Guard` — browser client now checks wallet balance before policy init/update and shows a clear fee/rent error
 
 ---
 
 ### Phase 9: Demo & Documentation
-**Status: 🔲 TODO**
+**Status: 🟡 IN PROGRESS**
 
 **Goal:** Demo-ready product with documentation.
 
 #### Priority 1 — Must Do
 - [ ] **README.md** — architecture diagram, screenshots, "AI vs deterministic logic" section, setup instructions
-- [ ] **Expanded AI reasoning in UI** — show signal breakdown (HF, volatility, oracle, buffer) that AI weighed, not just one-line reason
+- [x] **Expanded AI reasoning in UI** — show signal breakdown (HF, volatility, oracle, buffer) that AI weighed, not just one-line reason
 - [ ] **Demo video (90s)** — full cycle: connect wallet → AI decision → on-chain tx → Solscan link
 - [ ] Write `docs/demo-script.md` — step-by-step demo scenario
 - [ ] Write `docs/known-risks.md` — what's mocked, what's real, what's next
 
 #### Priority 2 — If Time Allows
-- [ ] **"Enable AI Guard" button** — on-chain policy creation from UI (user signs tx → PolicyAccount created)
-- [ ] **"View AI Reasoning" toggle** — show full AI input/output pipeline on decision card
+- [x] **"Enable AI Guard" button** — on-chain policy creation/update from UI (user signs tx → PolicyAccount created or updated)
+- [x] **"View AI Reasoning" toggle** — show full AI input/output pipeline on decision card
+
+**Additional completed work:**
+- [x] Dashboard fetches existing on-chain `PolicyAccount` by PDA for the current wallet + obligation
+- [x] Policy form can initialize or update Borro Guard policy on devnet through Phantom
+- [x] `policyAddress` is now passed into execution so on-chain decision logs can bind to the user policy
+- [x] Public Borro config route added for browser-side policy sync (`/api/borro/config`)
+- [x] Setup-mode UX cleanup — users now configure policy first, fund buffer second, then enable the guard on-chain
+- [x] Active monitoring layout — once enabled on-chain, the dashboard switches into status / assessment / history mode
+- [x] Policy sync messaging improved — local draft, synced, saving, and insufficient devnet SOL states are now surfaced in the UI
+
+**Current blocker / note:**
+- `Enable AI Guard On-Chain` on devnet still requires the connected wallet to hold a small amount of devnet SOL for rent and transaction fees. The UI now pre-checks this and shows a friendly error before Phantom simulation, but the wallet still needs funding to complete policy creation.
 
 #### Submission
 - [ ] Submit to Google Forms
@@ -269,7 +291,7 @@ Must-have sequence:
 6. ✅ Validation layer
 7. ✅ REPAY_FROM_BUFFER (mock + record_only on devnet)
 8. ✅ Decision history dashboard + Position Analysis
-9. ✅ Demo polish (stepper, counterfactual, worker demo, verified badge, randomized scenarios)
+9. ✅ Demo polish (stepper, counterfactual, worker demo, verified badge, fixed critical demo snapshot, state-based setup flow)
 10. 🔲 Demo & documentation
 
 **Can be cut:**

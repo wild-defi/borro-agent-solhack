@@ -19,6 +19,7 @@ export type AgentStatus =
   | "executed";
 
 interface AIDecisionCardProps {
+  title?: string;
   status: AgentStatus;
   snapshot: PositionSnapshot | null;
   policy: PolicyConfig;
@@ -66,6 +67,7 @@ const STATUS_BADGES: Record<
 };
 
 export default function AIDecisionCard({
+  title = "AI Guard",
   status,
   snapshot,
   policy,
@@ -84,7 +86,7 @@ export default function AIDecisionCard({
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">AI Guard</h2>
+        <h2 className="text-lg font-semibold">{title}</h2>
         <span
           className={`rounded-full px-3 py-1 text-xs font-medium ${badge.className}`}
         >
@@ -101,7 +103,7 @@ export default function AIDecisionCard({
       )}
 
       <div className="mt-5">
-        {status === "idle" && <IdleView onRunCheck={onRunCheck} />}
+        {status === "idle" && <IdleView />}
         {status === "monitoring" && <MonitoringView />}
         {status === "decision_ready" && decision && validation && (
           <DecisionView
@@ -133,30 +135,30 @@ const STEPS = [
   { key: "execute", label: "Execute" },
 ] as const;
 
-function stepIndex(status: AgentStatus): number {
+function stepStates(status: AgentStatus): { doneUpTo: number; active: number | null } {
   switch (status) {
-    case "idle": return -1;
-    case "monitoring": return 1; // analyzing
-    case "decision_ready": return 3; // validated
-    case "executing": return 4;
-    case "executed": return 5; // all done
+    case "idle":         return { doneUpTo: -1, active: null };
+    case "monitoring":   return { doneUpTo: 0,  active: 1 };    // Detect done, Analyze active
+    case "decision_ready": return { doneUpTo: 3, active: null }; // Detect→Validate all done
+    case "executing":    return { doneUpTo: 3,  active: 4 };    // Execute active
+    case "executed":     return { doneUpTo: 4,  active: null };  // all done
   }
 }
 
 function AgentStepper({ status }: { status: AgentStatus }) {
-  const active = stepIndex(status);
+  const { doneUpTo, active } = stepStates(status);
 
   return (
     <div className="mt-4 flex items-center gap-1">
       {STEPS.map((step, i) => {
-        const done = i < active;
-        const current = i === active;
+        const done = i <= doneUpTo;
+        const current = active !== null && i === active;
         const dotClass = done
           ? "bg-emerald-500"
           : current
             ? "bg-indigo-500 animate-pulse"
             : "bg-zinc-700";
-        const lineClass = done ? "bg-emerald-500/50" : "bg-zinc-700/50";
+        const lineClass = i <= doneUpTo ? "bg-emerald-500/50" : "bg-zinc-700/50";
         const labelClass = done
           ? "text-emerald-400"
           : current
@@ -181,18 +183,12 @@ function AgentStepper({ status }: { status: AgentStatus }) {
   );
 }
 
-function IdleView({ onRunCheck }: { onRunCheck: () => void }) {
+function IdleView() {
   return (
     <div className="text-center py-4">
-      <p className="text-sm text-zinc-400 mb-4">
-        Analyze your position and get an AI-powered risk assessment
+      <p className="text-sm text-zinc-500">
+        Use <span className="text-zinc-300 font-medium">Run Check</span> above to analyze your position
       </p>
-      <button
-        onClick={onRunCheck}
-        className="rounded-lg bg-indigo-600 px-6 py-2.5 font-medium text-white transition-colors hover:bg-indigo-500"
-      >
-        Run Check
-      </button>
     </div>
   );
 }
@@ -375,7 +371,7 @@ function DecisionView({
           onClick={onReset}
           className="rounded-lg border border-zinc-700 px-6 py-2.5 font-medium text-zinc-300 transition-colors hover:bg-zinc-800"
         >
-          Dismiss
+          Skip
         </button>
       </div>
 
@@ -770,11 +766,21 @@ function ExecutedView({
         onClick={onReset}
         className="rounded-lg bg-indigo-600 px-6 py-2.5 font-medium text-white transition-colors hover:bg-indigo-500"
       >
-        New Check
+        Run Check
       </button>
     </div>
   );
 }
+
+const STATUS_LABELS: Record<string, string> = {
+  success: "Success",
+  simulated: "Simulated",
+  logged: "On-chain",
+  failed: "Failed",
+  rejected: "Rejected",
+  pending: "Pending",
+  executing: "Executing",
+};
 
 export function ExecutionStatusBadge({
   status,
@@ -784,7 +790,7 @@ export function ExecutionStatusBadge({
   const styles: Record<string, string> = {
     success: "bg-emerald-500/20 text-emerald-400",
     simulated: "bg-blue-500/20 text-blue-400",
-    logged: "bg-amber-500/20 text-amber-400",
+    logged: "bg-emerald-500/20 text-emerald-400",
     failed: "bg-red-500/20 text-red-400",
     rejected: "bg-zinc-700/30 text-zinc-400",
     pending: "bg-indigo-500/20 text-indigo-400",
@@ -795,7 +801,7 @@ export function ExecutionStatusBadge({
     <span
       className={`rounded-full px-3 py-1 text-xs font-medium ${styles[status] ?? styles.pending}`}
     >
-      {status}
+      {STATUS_LABELS[status] ?? status}
     </span>
   );
 }

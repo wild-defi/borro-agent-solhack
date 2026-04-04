@@ -5,11 +5,13 @@ import {
   calculateVolatilityScore,
 } from "@/lib/risk/metrics";
 
+const DEMO_OBLIGATION_ADDRESS = "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF";
+
 const MOCK_POSITION_BASE = {
   collateralValueUsd: 4900,
   debtValueUsd: 3800,
   oracleConfidence: 0.89,
-  availableBufferUsd: 300,
+  availableBufferUsd: 0,
 };
 
 function getMockPosition(): PositionSnapshot {
@@ -21,6 +23,7 @@ function getMockPosition(): PositionSnapshot {
   const volatilityScore = Number((1 - s.oracleConfidence + (ltv > 70 ? 0.3 : 0)).toFixed(2));
 
   return {
+    obligationAddress: DEMO_OBLIGATION_ADDRESS,
     collateralAsset: "SOL",
     debtAsset: "USDC",
     collateralValueUsd: s.collateralValueUsd,
@@ -36,7 +39,10 @@ function getMockPosition(): PositionSnapshot {
   };
 }
 
-function toSnapshot(data: KaminoPositionData): PositionSnapshot {
+function toSnapshot(
+  data: KaminoPositionData,
+  walletAddress: string
+): PositionSnapshot {
   const distanceToLiquidation = calculateDistanceToLiquidation(
     data.ltv,
     data.liquidationThreshold
@@ -49,6 +55,7 @@ function toSnapshot(data: KaminoPositionData): PositionSnapshot {
 
   return {
     ...data,
+    obligationAddress: data.obligationAddress ?? walletAddress,
     distanceToLiquidation,
     availableBufferUsd: 0, // will be filled from buffer vault later
     oracleConfidence,
@@ -66,5 +73,5 @@ export async function getPositionSnapshot(
   const position = await fetchUserPosition(walletAddress);
   if (!position) return getMockPosition();
 
-  return toSnapshot(position);
+  return toSnapshot(position, walletAddress);
 }
