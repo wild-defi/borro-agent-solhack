@@ -2,6 +2,10 @@
 
 import type { AIDecision, ExecutionRecord, PolicyConfig, PositionSnapshot, RiskProfile } from "@/lib/types";
 import type { AgentStatus } from "./ai-decision-card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useCountUp } from "@/hooks/use-count-up";
 
 const PROFILE_LABELS: Record<RiskProfile, string> = {
   conservative: "Early & Gentle",
@@ -35,7 +39,7 @@ function shortenAddress(address: string) {
 
 type StatusInfo = {
   label: string;
-  badgeClass: string;
+  variant: "success" | "warning" | "danger" | "info" | "default";
   description: string;
   healthy: boolean;
 };
@@ -44,7 +48,7 @@ function resolveStatus(props: AgentStatusCardProps): StatusInfo {
   if (props.agentStatus === "executing") {
     return {
       label: "Intervening",
-      badgeClass: "bg-indigo-500/20 text-indigo-400",
+      variant: "info",
       description: "Borro is sending an intervention transaction.",
       healthy: false,
     };
@@ -53,7 +57,7 @@ function resolveStatus(props: AgentStatusCardProps): StatusInfo {
   if (props.agentStatus === "decision_ready") {
     return {
       label: "Decision Ready",
-      badgeClass: "bg-amber-500/20 text-amber-400",
+      variant: "warning",
       description: "A validated action is ready for review.",
       healthy: false,
     };
@@ -62,8 +66,8 @@ function resolveStatus(props: AgentStatusCardProps): StatusInfo {
   if ((props.snapshot?.availableBufferUsd ?? 0) <= 0) {
     return {
       label: "Needs Buffer",
-      badgeClass: "bg-amber-500/20 text-amber-400",
-      description: "No repayment buffer available — add funds below to enable protection.",
+      variant: "warning",
+      description: "No repayment buffer available — add funds to enable protection.",
       healthy: false,
     };
   }
@@ -71,8 +75,8 @@ function resolveStatus(props: AgentStatusCardProps): StatusInfo {
   if ((props.snapshot?.healthFactor ?? 999) <= 1.1) {
     return {
       label: "Risk Detected",
-      badgeClass: "bg-red-500/20 text-red-400",
-      description: "The position is close to liquidation and may need intervention soon.",
+      variant: "danger",
+      description: "Position is close to liquidation and may need intervention.",
       healthy: false,
     };
   }
@@ -80,8 +84,8 @@ function resolveStatus(props: AgentStatusCardProps): StatusInfo {
   if (props.agentStatus === "executed") {
     return {
       label: "Protected",
-      badgeClass: "bg-emerald-500/20 text-emerald-400",
-      description: "The latest intervention completed and the position is safer now.",
+      variant: "success",
+      description: "Latest intervention completed — position is safer now.",
       healthy: true,
     };
   }
@@ -90,170 +94,170 @@ function resolveStatus(props: AgentStatusCardProps): StatusInfo {
   if (hf >= 1.1) {
     return {
       label: "Position Healthy",
-      badgeClass: "bg-emerald-500/20 text-emerald-400",
+      variant: "success",
       description: "Agent is watching. No action needed.",
       healthy: true,
     };
   }
 
   return {
-    label: "Monitoring Active",
-    badgeClass: "bg-emerald-500/20 text-emerald-400",
-    description: "Borro is ready to monitor this position using the saved on-chain policy.",
+    label: "Monitoring",
+    variant: "default",
+    description: "Borro is ready to monitor this position.",
     healthy: false,
   };
 }
 
+function computeSafeMargin(hf: number): number {
+  if (hf <= 1) return 0;
+  // Safe margin: how far from liquidation (HF=1) relative to a "fully safe" HF of 2.0
+  return Math.min(100, Math.round(((hf - 1) / 1) * 100));
+}
+
+function dotColor(status: StatusInfo, agentStatus: AgentStatus): string {
+  if (status.healthy) return "bg-emerald-400";
+  if (agentStatus === "executing" || agentStatus === "monitoring") return "bg-sky-400";
+  if (status.variant === "danger") return "bg-red-400";
+  if (status.variant === "warning") return "bg-amber-400";
+  return "bg-zinc-500";
+}
+
+function dotGlow(status: StatusInfo, agentStatus: AgentStatus): string {
+  if (status.healthy) return "glow-emerald";
+  if (agentStatus === "executing" || agentStatus === "monitoring") return "";
+  if (status.variant === "danger") return "glow-red";
+  if (status.variant === "warning") return "glow-amber";
+  return "";
+}
+
 export default function AgentStatusCard(props: AgentStatusCardProps) {
   const status = resolveStatus(props);
+  const hf = props.snapshot?.healthFactor ?? 0;
+  const safeMargin = computeSafeMargin(hf);
+  const animatedMargin = useCountUp(safeMargin, { duration: 700 });
+  const animatedHf = useCountUp(hf, { duration: 700, decimals: 2 });
   const lastEventAt =
     props.currentExecution?.timestamp ??
     (props.currentDecision ? props.snapshot?.timestamp : null) ??
     props.snapshot?.timestamp ??
     null;
 
+  const isPulsing = status.healthy || props.agentStatus === "executing" || props.agentStatus === "monitoring";
+
   return (
-    <div className={`rounded-xl border bg-zinc-900 p-6 transition-colors ${
-      status.healthy ? "border-emerald-800/40" : "border-zinc-800"
+    <Card className={`relative overflow-hidden transition-colors ${
+      status.healthy ? "border-emerald-800/40" : ""
     }`}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          {/* Pulsing dot */}
-          <div className="relative mt-0.5 flex-shrink-0">
-            <span className={`block h-2.5 w-2.5 rounded-full ${
-              status.healthy
-                ? "bg-emerald-400"
-                : props.agentStatus === "executing" || props.agentStatus === "monitoring"
-                  ? "bg-indigo-400"
-                  : (props.snapshot?.healthFactor ?? 999) <= 1.1
-                    ? "bg-red-400"
-                    : "bg-zinc-500"
-            }`} />
-            {(status.healthy || props.agentStatus === "executing" || props.agentStatus === "monitoring") && (
-              <span className={`absolute inset-0 rounded-full animate-ping opacity-60 ${
-                status.healthy ? "bg-emerald-400" : "bg-indigo-400"
-              }`} />
-            )}
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">AI Guard Status</h2>
-            <p className="mt-0.5 text-sm text-zinc-500">{status.description}</p>
-          </div>
-        </div>
-        <span className={`flex-shrink-0 rounded-full px-3 py-1 text-xs font-medium ${status.badgeClass}`}>
-          {status.label}
-        </span>
-      </div>
-
-      {/* Needs Buffer CTA */}
-      {status.label === "Needs Buffer" && (
-        <div className="mt-4 flex items-center justify-between rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
-          <p className="text-xs text-amber-400">
-            Fund the buffer so the agent can repay debt on your behalf.
-          </p>
-          <button
-            type="button"
-            onClick={props.onDeposit}
-            className="ml-4 flex-shrink-0 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-500/30"
-          >
-            + Add $300
-          </button>
-        </div>
-      )}
-
-      {/* Healthy callout */}
-      {status.healthy && (
-        <div className="mt-4 rounded-lg border border-emerald-800/30 bg-emerald-900/10 px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-emerald-400">
-                Health Factor: {props.snapshot?.healthFactor?.toFixed(2)}
-              </p>
-              <p className="mt-0.5 text-xs text-zinc-500">
-                {lastEventAt ? `Last check: ${timeAgo(lastEventAt)}` : "No check yet"}
-                {" · "}
-                {props.interventionCount === 0
-                  ? "No interventions today"
-                  : `${props.interventionCount} intervention${props.interventionCount > 1 ? "s" : ""} today`}
-              </p>
+      <CardContent className="p-6">
+        {/* Hero header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            {/* Status dot with glow */}
+            <div className="relative mt-0.5 flex-shrink-0">
+              <span className={`block h-3 w-3 rounded-full ${dotColor(status, props.agentStatus)} ${dotGlow(status, props.agentStatus)}`} />
+              {isPulsing && (
+                <span className={`absolute inset-0 rounded-full animate-ping opacity-50 ${
+                  status.healthy ? "bg-emerald-400" : "bg-sky-400"
+                }`} />
+              )}
             </div>
-            <span className="text-2xl">🛡️</span>
+            <div>
+              <h2 className="text-lg font-semibold font-[family-name:var(--font-mono)]">
+                AI Guard
+              </h2>
+              <p className="mt-0.5 text-sm text-zinc-500">{status.description}</p>
+            </div>
           </div>
+          <Badge variant={status.variant}>{status.label}</Badge>
         </div>
-      )}
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-3">
-        <StatusStat
-          label="Policy"
-          value={shortenAddress(props.policyAddress)}
-          sub={PROFILE_LABELS[props.policy.riskProfile]}
-        />
-        <StatusStat
-          label="Buffer"
-          value={`$${(props.snapshot?.availableBufferUsd ?? 0).toLocaleString()}`}
-          sub="USDC available"
-        />
-        <StatusStat
-          label="Last Activity"
-          value={lastEventAt ? timeAgo(lastEventAt) : "Not yet"}
-          sub={
-            props.currentExecution
-              ? "Last intervention"
-              : props.currentDecision
-                ? "Last assessment"
-                : "Waiting for first check"
-          }
-        />
-      </div>
+        {/* Health progress bar — the hero visual */}
+        {props.snapshot && (
+          <div className="mt-5">
+            <div className="flex items-baseline justify-between mb-2">
+              <span className="text-sm text-zinc-400">Safe Margin</span>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-2xl font-bold font-[family-name:var(--font-mono)] tabular-nums ${
+                  safeMargin > 25 ? "text-emerald-400" : safeMargin > 10 ? "text-amber-400" : "text-red-400"
+                }`}>
+                  {animatedMargin}%
+                </span>
+                <span className="text-xs text-zinc-600">
+                  HF {animatedHf.toFixed(2)}
+                </span>
+              </div>
+            </div>
+            <div className="relative h-3 w-full rounded-full bg-zinc-800 overflow-hidden">
+              <div
+                className="health-bar-gradient h-full rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${Math.min(100, safeMargin)}%` }}
+              />
+              {/* Liquidation threshold marker */}
+              <div className="absolute top-0 left-0 h-full w-px bg-red-500/50" style={{ left: "0%" }} />
+            </div>
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[10px] text-red-400/60">Liquidation</span>
+              <span className="text-[10px] text-emerald-400/60">Safe</span>
+            </div>
+          </div>
+        )}
 
-      <div className="mt-5">
-        <button
-          onClick={props.onRunCheck}
-          disabled={props.agentStatus === "monitoring" || props.agentStatus === "executing"}
-          className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
-        >
-          {props.agentStatus === "monitoring" ? "Checking..." : "Run Check"}
-        </button>
-      </div>
-    </div>
+        {/* Needs Buffer CTA */}
+        {status.label === "Needs Buffer" && (
+          <div className="mt-4 flex items-center justify-between rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+            <p className="text-xs text-amber-400">
+              Fund the buffer so the agent can repay debt on your behalf.
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={props.onDeposit}
+              className="ml-4 flex-shrink-0 text-amber-300 hover:text-amber-200 hover:bg-amber-500/10"
+            >
+              + Add $300
+            </Button>
+          </div>
+        )}
+
+        {/* Stats row */}
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          <StatCell
+            label="Policy"
+            value={shortenAddress(props.policyAddress)}
+            sub={PROFILE_LABELS[props.policy.riskProfile]}
+          />
+          <StatCell
+            label="Buffer"
+            value={`$${(props.snapshot?.availableBufferUsd ?? 0).toLocaleString()}`}
+            sub="USDC available"
+          />
+          <StatCell
+            label="Activity"
+            value={lastEventAt ? timeAgo(lastEventAt) : "—"}
+            sub={
+              props.interventionCount === 0
+                ? "No interventions"
+                : `${props.interventionCount} intervention${props.interventionCount > 1 ? "s" : ""}`
+            }
+          />
+        </div>
+
+        {/* Action */}
+        <div className="mt-5">
+          <Button
+            onClick={props.onRunCheck}
+            disabled={props.agentStatus === "monitoring" || props.agentStatus === "executing"}
+            className="w-full sm:w-auto"
+          >
+            {props.agentStatus === "monitoring" ? "Checking..." : "Run Check"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-function WhatIfBar({ hf }: { hf: number }) {
-  const withoutBorro = Math.max(0, (1 - 1 / hf) * 100);
-  // Estimate "with Borro" as if HF were 20% higher (agent intervenes before liquidation)
-  const projectedHf = hf * 1.2;
-  const withBorro = Math.max(0, (1 - 1 / projectedHf) * 100);
-
-  return (
-    <div className="mt-4 grid grid-cols-2 gap-2">
-      <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2.5">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-red-400">
-          Without Borro
-        </p>
-        <p className="mt-1 text-sm text-zinc-300">
-          Liquidation if SOL drops{" "}
-          <span className="font-semibold text-red-400">
-            {withoutBorro.toFixed(1)}%
-          </span>
-        </p>
-      </div>
-      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-400">
-          With Borro
-        </p>
-        <p className="mt-1 text-sm text-zinc-300">
-          Safe until SOL drops{" "}
-          <span className="font-semibold text-emerald-400">
-            {withBorro.toFixed(1)}%
-          </span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function StatusStat({
+function StatCell({
   label,
   value,
   sub,
@@ -263,10 +267,10 @@ function StatusStat({
   sub: string;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-800/30 px-4 py-3">
-      <p className="text-sm text-zinc-500">{label}</p>
-      <p className="mt-1 text-lg font-semibold">{value}</p>
-      <p className="mt-0.5 text-xs text-zinc-500">{sub}</p>
+    <div className="rounded-lg border border-zinc-800/60 bg-zinc-800/20 px-3 py-2.5">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">{label}</p>
+      <p className="mt-1 text-sm font-semibold font-[family-name:var(--font-mono)] tabular-nums">{value}</p>
+      <p className="mt-0.5 text-[11px] text-zinc-500">{sub}</p>
     </div>
   );
 }

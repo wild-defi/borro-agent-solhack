@@ -1,28 +1,246 @@
 @import "tailwindcss";
 
+/* ── Borro Agent Design Tokens ───────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --font-sans: "SF Pro Display", "Segoe UI", Helvetica, Arial, sans-serif;
-  --font-mono: "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace;
+  --background: #06060b;
+  --foreground: #e4e4e7;
+  --card: #0d0d14;
+  --card-border: rgba(63, 63, 70, 0.5);
+  --muted: #18181b;
+  --muted-foreground: #71717a;
+  --accent: #10b981;
+  --accent-foreground: #d1fae5;
+  --destructive: #ef4444;
+  --ring: rgba(16, 185, 129, 0.3);
+
+  --font-sans: "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ── Base ─────────────────────────────────────────────────── */
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Subtle grid pattern — "control room" aesthetic */
+.borro-grid-bg {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.035) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.borro-landing-glow {
+  background:
+    radial-gradient(circle at 18% 24%, rgba(99, 102, 241, 0.2), transparent 28%),
+    radial-gradient(circle at 76% 18%, rgba(16, 185, 129, 0.14), transparent 26%),
+    radial-gradient(circle at 86% 64%, rgba(239, 68, 68, 0.16), transparent 24%),
+    linear-gradient(180deg, rgba(12, 12, 18, 0.94), rgba(6, 6, 11, 1));
+}
+
+.borro-noise-soft::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.028;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* ── Glow utilities ───────────────────────────────────────── */
+
+.glow-emerald {
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4), 0 0 24px rgba(16, 185, 129, 0.1);
+}
+
+.glow-red {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4), 0 0 24px rgba(239, 68, 68, 0.1);
+}
+
+.glow-amber {
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4), 0 0 24px rgba(245, 158, 11, 0.1);
+}
+
+/* ── Sheet / Dialog animations (tailwindcss-animate compat) ─ */
+
+@keyframes slide-in-from-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slide-out-to-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+[data-state="open"][class*="slide-in-from-right"] {
+  animation: slide-in-from-right 0.3s ease-out;
+}
+
+[data-state="closed"][class*="slide-out-to-right"] {
+  animation: slide-out-to-right 0.3s ease-in;
+}
+
+[data-state="open"][class*="fade-in"] {
+  animation: fade-in 0.2s ease-out;
+}
+
+[data-state="closed"][class*="fade-out"] {
+  animation: fade-out 0.2s ease-in;
+}
+
+/* ── CountUp / flash animations ───────────────────────────── */
+
+@keyframes flash-green {
+  0% { background-color: rgba(16, 185, 129, 0.2); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-red {
+  0% { background-color: rgba(239, 68, 68, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.animate-flash-green {
+  animation: flash-green 1s ease-out;
+}
+
+.animate-flash-red {
+  animation: flash-red 1s ease-out;
+}
+
+@keyframes borro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes borro-orbit {
+  0% {
+    transform: scale(0.98);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(0.98);
+    opacity: 0.55;
+  }
+}
+
+@keyframes borro-scan {
+  0% {
+    transform: translateX(-18%);
+    opacity: 0.82;
+  }
+  50% {
+    transform: translateX(108%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-18%);
+    opacity: 0.82;
+  }
+}
+
+@keyframes borro-draw {
+  from {
+    stroke-dashoffset: 920;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-borro-rise {
+  animation: borro-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.borro-orbit-ring {
+  animation: borro-orbit 5.2s ease-in-out infinite;
+}
+
+.borro-signal-scan {
+  animation: borro-scan 4.4s ease-in-out infinite;
+}
+
+.borro-path-draw {
+  stroke-dasharray: 920;
+  stroke-dashoffset: 920;
+  animation: borro-draw 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards;
+}
+
+/* ── Health bar gradient ──────────────────────────────────── */
+
+.health-bar-gradient {
+  background: linear-gradient(90deg, #ef4444 0%, #f59e0b 30%, #10b981 70%, #10b981 100%);
+}
+
+/* ── Shimmer / skeleton loading ────────────────────────────── */
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.04) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ── Fade-in for cards ────────────────────────────────────── */
+
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-slide-in 0.4s ease-out;
+}
+
+/* ── Noise texture overlay ────────────────────────────────── */
+
+.noise-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }

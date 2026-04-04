@@ -1,17 +1,19 @@
 "use client";
 
 import type { PositionSnapshot } from "@/lib/types";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+function riskBadge(hf: number): { label: string; variant: "success" | "warning" | "danger" } {
+  if (hf <= 1.1) return { label: "CRITICAL", variant: "danger" };
+  if (hf <= 1.25) return { label: "AT RISK", variant: "warning" };
+  return { label: "SAFE", variant: "success" };
+}
 
 function riskColor(hf: number) {
   if (hf <= 1.1) return "text-red-400";
   if (hf <= 1.25) return "text-amber-400";
   return "text-emerald-400";
-}
-
-function riskBadge(hf: number) {
-  if (hf <= 1.1) return { label: "CRITICAL", bg: "bg-red-500/20 text-red-400" };
-  if (hf <= 1.25) return { label: "AT RISK", bg: "bg-amber-500/20 text-amber-400" };
-  return { label: "SAFE", bg: "bg-emerald-500/20 text-emerald-400" };
 }
 
 export default function PositionCard({
@@ -25,55 +27,62 @@ export default function PositionCard({
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <p className="text-zinc-500">Loading position...</p>
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-emerald-500" />
+            <p className="text-sm text-zinc-500">Loading position...</p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   if (!pos) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <p className="text-zinc-500">No Kamino position found</p>
-      </div>
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-sm text-zinc-500">No Kamino position found</p>
+        </CardContent>
+      </Card>
     );
   }
 
   const badge = riskBadge(pos.healthFactor);
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Kamino Position</h2>
-        <span className={`rounded-full px-3 py-1 text-xs font-medium ${badge.bg}`}>
-          {badge.label}
-        </span>
-      </div>
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-medium text-zinc-400">Position</h3>
+          <Badge variant={badge.variant}>{badge.label}</Badge>
+        </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat
-          label="Collateral"
-          value={`$${pos.collateralValueUsd.toLocaleString()}`}
-          sub={pos.collateralAsset}
-        />
-        <Stat
-          label="Debt"
-          value={`$${pos.debtValueUsd.toLocaleString()}`}
-          sub={pos.debtAsset}
-        />
-        <Stat
-          label="LTV"
-          value={`${pos.ltv.toFixed(1)}%`}
-          sub={`liq at ${pos.liquidationThreshold}%`}
-        />
-        <Stat
-          label="Health Factor"
-          value={pos.healthFactor.toFixed(2)}
-          sub={`${pos.distanceToLiquidation.toFixed(1)}% to liq`}
-          valueClass={riskColor(pos.healthFactor)}
-        />
-      </div>
-    </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Stat
+            label="Collateral"
+            value={`$${pos.collateralValueUsd.toLocaleString()}`}
+            sub={pos.collateralAsset}
+          />
+          <Stat
+            label="Debt"
+            value={`$${pos.debtValueUsd.toLocaleString()}`}
+            sub={pos.debtAsset}
+          />
+          <Stat
+            label="LTV"
+            value={`${pos.ltv.toFixed(1)}%`}
+            sub={`liq at ${pos.liquidationThreshold}%`}
+          />
+          <Stat
+            label="Health Factor"
+            value={pos.healthFactor.toFixed(2)}
+            sub={`${pos.distanceToLiquidation.toFixed(1)}% to liq`}
+            valueClass={riskColor(pos.healthFactor)}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -90,11 +99,11 @@ function Stat({
 }) {
   return (
     <div>
-      <p className="text-sm text-zinc-500">{label}</p>
-      <p className={`mt-1 text-xl font-semibold ${valueClass ?? "text-zinc-100"}`}>
+      <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">{label}</p>
+      <p className={`mt-1 text-lg font-semibold font-[family-name:var(--font-mono)] tabular-nums ${valueClass ?? "text-zinc-100"}`}>
         {value}
       </p>
-      {sub && <p className="mt-0.5 text-xs text-zinc-500">{sub}</p>}
+      {sub && <p className="mt-0.5 text-[11px] text-zinc-500">{sub}</p>}
     </div>
   );
 }

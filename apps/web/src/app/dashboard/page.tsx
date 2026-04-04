@@ -466,7 +466,9 @@ export default function DashboardPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Borro Agent</h1>
+        <h1 className="text-xl font-bold font-[family-name:var(--font-mono)] tracking-tight">
+          Borro<span className="text-emerald-400">.</span>
+        </h1>
         <ConnectWalletButton />
       </header>
 
@@ -477,15 +479,14 @@ export default function DashboardPage() {
           </p>
         </div>
       ) : (
-        <div className="mt-8 space-y-6">
-          <p className="text-sm text-zinc-500">
-            Wallet: {publicKey?.toBase58().slice(0, 8)}...
-            {publicKey?.toBase58().slice(-4)}
+        <div className="mt-8 space-y-5">
+          <p className="text-xs text-zinc-600 font-[family-name:var(--font-mono)]">
+            {publicKey?.toBase58().slice(0, 8)}...{publicKey?.toBase58().slice(-4)}
           </p>
-          <PositionCard snapshot={currentSnapshot} loading={positionLoading} />
 
           {!isGuardActive ? (
             <>
+              <PositionCard snapshot={currentSnapshot} loading={positionLoading} />
               <SetupWizard
                 snapshot={currentSnapshot}
                 policy={currentPolicy}
@@ -519,6 +520,15 @@ export default function DashboardPage() {
                 onDeposit={handleDepositBuffer}
                 onPauseGuard={handlePauseGuard}
               />
+              {/* Two-column: Position + Buffer */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <PositionCard snapshot={currentSnapshot} loading={positionLoading} />
+                <BufferCard
+                  snapshot={currentSnapshot}
+                  onDeposit={handleDepositBuffer}
+                  onWithdraw={handleWithdrawBuffer}
+                />
+              </div>
               <AIDecisionCard
                 title="Last AI Assessment"
                 status={agentStatus}
@@ -532,11 +542,6 @@ export default function DashboardPage() {
                 onRunCheck={handleRunCheck}
                 onExecute={handleExecute}
                 onReset={handleReset}
-              />
-              <BufferCard
-                snapshot={currentSnapshot}
-                onDeposit={handleDepositBuffer}
-                onWithdraw={handleWithdrawBuffer}
               />
               <ExecutionHistory records={executionHistory} />
               <PolicyForm

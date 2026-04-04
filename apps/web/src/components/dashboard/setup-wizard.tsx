@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import type { PolicyConfig, PositionSnapshot, RiskProfile } from "@/lib/types";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const PROFILE_PRESETS: Record<
   RiskProfile,
@@ -124,80 +129,81 @@ export default function SetupWizard({
   ];
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-      {/* Header */}
-      <h2 className="text-lg font-semibold">Set Up Borro Agent</h2>
-      <p className="mt-1 text-sm text-zinc-500">
-        Configure protection in 3 steps. After that, the dashboard switches to
-        active monitoring.
-      </p>
+    <Card>
+      <CardContent className="p-6">
+        <h2 className="text-lg font-semibold font-[family-name:var(--font-mono)]">
+          Set Up Borro Agent
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Configure protection in 3 steps. After that, the dashboard switches to
+          active monitoring.
+        </p>
 
-      {/* Progress bar */}
-      <div className="mt-5 flex items-center gap-1">
-        {steps.map((s, i) => (
-          <div key={s.label} className="flex flex-1 flex-col items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setStep(i)}
-              className={`h-1.5 w-full rounded-full transition-colors ${
-                i <= step ? "bg-indigo-500" : "bg-zinc-700"
-              }`}
+        {/* Progress bar */}
+        <div className="mt-5 flex items-center gap-1">
+          {steps.map((s, i) => (
+            <div key={s.label} className="flex flex-1 flex-col items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setStep(i)}
+                className={`h-1.5 w-full rounded-full transition-colors ${
+                  i <= step ? "bg-emerald-500" : "bg-zinc-700"
+                }`}
+              />
+              <span
+                className={`text-[11px] font-medium ${
+                  i === step ? "text-emerald-400" : i < step ? "text-zinc-400" : "text-zinc-600"
+                }`}
+              >
+                {s.short}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Step content */}
+        <div className="mt-6">
+          {step === 0 && (
+            <StepProfile
+              selected={policy.riskProfile}
+              onSelect={applyPreset}
+              policy={policy}
+              fineTuneOpen={fineTuneOpen}
+              onToggleFineTune={() => setFineTuneOpen(!fineTuneOpen)}
+              onUpdateNumber={updateNumber}
+              onNext={() => setStep(1)}
             />
-            <span
-              className={`text-[11px] font-medium ${
-                i === step ? "text-indigo-400" : i < step ? "text-zinc-400" : "text-zinc-600"
-              }`}
-            >
-              {s.short}
-            </span>
-          </div>
-        ))}
-      </div>
+          )}
 
-      {/* Step content */}
-      <div className="mt-6">
-        {step === 0 && (
-          <StepProfile
-            selected={policy.riskProfile}
-            onSelect={applyPreset}
-            policy={policy}
-            fineTuneOpen={fineTuneOpen}
-            onToggleFineTune={() => setFineTuneOpen(!fineTuneOpen)}
-            onUpdateNumber={updateNumber}
-            onNext={() => setStep(1)}
-          />
-        )}
+          {step === 1 && (
+            <StepBuffer
+              bufferBalance={bufferBalance}
+              onDeposit={onDeposit}
+              onWithdraw={onWithdraw}
+              onBack={() => setStep(0)}
+              onNext={() => setStep(2)}
+            />
+          )}
 
-        {step === 1 && (
-          <StepBuffer
-            bufferBalance={bufferBalance}
-            onDeposit={onDeposit}
-            onWithdraw={onWithdraw}
-            onBack={() => setStep(0)}
-            onNext={() => setStep(2)}
-          />
-        )}
-
-        {step === 2 && (
-          <StepActivate
-            policy={policy}
-            policyAddress={policyAddress}
-            syncStatus={syncStatus}
-            syncError={syncError}
-            syncDisabled={syncDisabled}
-            bufferBalance={bufferBalance}
-            onSyncOnChain={onSyncOnChain}
-            onBack={() => setStep(1)}
-          />
-        )}
-      </div>
-    </div>
+          {step === 2 && (
+            <StepActivate
+              policy={policy}
+              policyAddress={policyAddress}
+              syncStatus={syncStatus}
+              syncError={syncError}
+              syncDisabled={syncDisabled}
+              bufferBalance={bufferBalance}
+              onSyncOnChain={onSyncOnChain}
+              onBack={() => setStep(1)}
+            />
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-/* ────────────────────────────────────────────
-   Step 1: Risk Profile
-   ──────────────────────────────────────────── */
+/* ── Step 1: Risk Profile ──────────────────── */
 
 function StepProfile({
   selected,
@@ -213,11 +219,7 @@ function StepProfile({
   policy: PolicyConfig;
   fineTuneOpen: boolean;
   onToggleFineTune: () => void;
-  onUpdateNumber: <K extends keyof PolicyConfig>(
-    key: K,
-    value: string,
-    fallback: number
-  ) => void;
+  onUpdateNumber: <K extends keyof PolicyConfig>(key: K, value: string, fallback: number) => void;
   onNext: () => void;
 }) {
   return (
@@ -236,7 +238,7 @@ function StepProfile({
               onClick={() => onSelect(p.value)}
               className={`w-full rounded-lg border px-4 py-4 text-left transition-colors ${
                 isSelected
-                  ? "border-indigo-500/50 bg-indigo-500/10"
+                  ? "border-emerald-500/40 bg-emerald-500/10"
                   : "border-zinc-700/50 bg-zinc-800/40 hover:border-zinc-600"
               }`}
             >
@@ -244,11 +246,7 @@ function StepProfile({
                 <span className="text-xl">{p.icon}</span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`text-sm font-semibold ${
-                        isSelected ? "text-indigo-300" : "text-zinc-200"
-                      }`}
-                    >
+                    <span className={`text-sm font-semibold ${isSelected ? "text-emerald-300" : "text-zinc-200"}`}>
                       {p.name}
                     </span>
                     <span className="text-xs text-zinc-500">{p.tagline}</span>
@@ -256,7 +254,7 @@ function StepProfile({
                   <p className="mt-1 text-xs text-zinc-500">{p.description}</p>
                 </div>
                 {isSelected && (
-                  <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-indigo-500 text-[11px] text-white">
+                  <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[11px] text-white">
                     ✓
                   </span>
                 )}
@@ -267,90 +265,76 @@ function StepProfile({
       </div>
 
       {/* Fine-tune accordion */}
-      <button
-        type="button"
-        onClick={onToggleFineTune}
-        className="mt-4 flex w-full items-center gap-2 text-xs text-zinc-500 transition-colors hover:text-zinc-400"
-      >
-        <span
-          className={`transition-transform ${fineTuneOpen ? "rotate-90" : ""}`}
-        >
-          ▸
-        </span>
-        Fine-tune parameters
-      </button>
+      <Collapsible open={fineTuneOpen} onOpenChange={onToggleFineTune}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="mt-4 flex w-full items-center gap-2 text-xs text-zinc-500 transition-colors hover:text-zinc-400"
+          >
+            <span className={`transition-transform ${fineTuneOpen ? "rotate-90" : ""}`}>▸</span>
+            Fine-tune parameters
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Target Health Factor</Label>
+              <Input
+                type="number"
+                min={1}
+                step={0.01}
+                value={policy.targetHealthFactor}
+                onChange={(e) => onUpdateNumber("targetHealthFactor", e.target.value, policy.targetHealthFactor)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Max Repay / Action ($)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={50}
+                value={policy.maxRepayPerActionUsd}
+                onChange={(e) => onUpdateNumber("maxRepayPerActionUsd", e.target.value, policy.maxRepayPerActionUsd)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Daily Limit ($)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={50}
+                value={policy.maxDailyInterventionUsd}
+                onChange={(e) => onUpdateNumber("maxDailyInterventionUsd", e.target.value, policy.maxDailyInterventionUsd)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cooldown (min)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={Math.round(policy.cooldownSeconds / 60)}
+                onChange={(e) => {
+                  const parsed = Number(e.target.value);
+                  const minutes = Number.isFinite(parsed)
+                    ? Math.max(0, parsed)
+                    : Math.round(policy.cooldownSeconds / 60);
+                  onUpdateNumber("cooldownSeconds", String(minutes * 60), policy.cooldownSeconds);
+                }}
+              />
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
-      {fineTuneOpen && (
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <NumberField
-            label="Target Health Factor"
-            value={policy.targetHealthFactor}
-            min={1}
-            step={0.01}
-            onChange={(v) =>
-              onUpdateNumber("targetHealthFactor", v, policy.targetHealthFactor)
-            }
-          />
-          <NumberField
-            label="Max Repay per Action ($)"
-            value={policy.maxRepayPerActionUsd}
-            min={0}
-            step={50}
-            onChange={(v) =>
-              onUpdateNumber(
-                "maxRepayPerActionUsd",
-                v,
-                policy.maxRepayPerActionUsd
-              )
-            }
-          />
-          <NumberField
-            label="Max Daily Intervention ($)"
-            value={policy.maxDailyInterventionUsd}
-            min={0}
-            step={50}
-            onChange={(v) =>
-              onUpdateNumber(
-                "maxDailyInterventionUsd",
-                v,
-                policy.maxDailyInterventionUsd
-              )
-            }
-          />
-          <NumberField
-            label="Cooldown (minutes)"
-            value={Math.round(policy.cooldownSeconds / 60)}
-            min={0}
-            step={1}
-            onChange={(v) => {
-              const parsed = Number(v);
-              const minutes = Number.isFinite(parsed)
-                ? Math.max(0, parsed)
-                : Math.round(policy.cooldownSeconds / 60);
-              onUpdateNumber(
-                "cooldownSeconds",
-                String(minutes * 60),
-                policy.cooldownSeconds
-              );
-            }}
-          />
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={onNext}
-        className="mt-6 w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
-      >
+      <Button onClick={onNext} className="mt-6 w-full">
         Continue
-      </button>
+      </Button>
     </div>
   );
 }
 
-/* ────────────────────────────────────────────
-   Step 2: Safety Buffer
-   ──────────────────────────────────────────── */
+/* ── Step 2: Safety Buffer ─────────────────── */
 
 function StepBuffer({
   bufferBalance,
@@ -367,38 +351,35 @@ function StepBuffer({
 }) {
   return (
     <div>
-      <p className="text-sm font-medium text-zinc-300">
-        Fund the safety buffer
-      </p>
+      <p className="text-sm font-medium text-zinc-300">Fund the safety buffer</p>
       <p className="mt-2 text-xs text-zinc-500">
-        This is the USDC reserve Borro uses to repay part of your debt when risk
-        increases. The larger the buffer, the more room the agent has to protect
-        you.
+        USDC reserve Borro uses to repay part of your debt when risk increases.
       </p>
 
       <div className="mt-5 rounded-lg border border-zinc-700/50 bg-zinc-800/30 px-5 py-5">
-        <p className="text-xs text-zinc-500">Available</p>
-        <p className="mt-1 text-3xl font-semibold">
-          ${bufferBalance.toLocaleString()}{" "}
-          <span className="text-sm font-normal text-zinc-500">USDC</span>
+        <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">Available</p>
+        <p className="mt-1 text-3xl font-bold font-[family-name:var(--font-mono)] tabular-nums">
+          ${bufferBalance.toLocaleString()}
+          <span className="ml-1.5 text-sm font-normal text-zinc-500">USDC</span>
         </p>
 
         <div className="mt-4 flex gap-2">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             disabled={bufferBalance <= 0}
             onClick={onWithdraw}
-            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
           >
             − $300
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onDeposit}
-            className="rounded-lg bg-indigo-600/20 border border-indigo-500/30 px-4 py-2 text-sm font-medium text-indigo-400 transition-colors hover:bg-indigo-600/30"
+            className="bg-emerald-600/15 text-emerald-400 hover:bg-emerald-600/25 border border-emerald-500/20"
           >
             + $300
-          </button>
+          </Button>
         </div>
 
         <p className="mt-3 text-[11px] text-zinc-600">
@@ -407,28 +388,14 @@ function StepBuffer({
       </div>
 
       <div className="mt-6 flex gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-lg border border-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800"
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          onClick={onNext}
-          className="flex-1 rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
-        >
-          Continue
-        </button>
+        <Button variant="outline" onClick={onBack}>Back</Button>
+        <Button onClick={onNext} className="flex-1">Continue</Button>
       </div>
     </div>
   );
 }
 
-/* ────────────────────────────────────────────
-   Step 3: Activate On-Chain
-   ──────────────────────────────────────────── */
+/* ── Step 3: Activate On-Chain ─────────────── */
 
 function StepActivate({
   policy,
@@ -454,54 +421,35 @@ function StepActivate({
 
   return (
     <div>
-      <p className="text-sm font-medium text-zinc-300">
-        Review & activate protection
-      </p>
+      <p className="text-sm font-medium text-zinc-300">Review & activate protection</p>
       <p className="mt-2 text-xs text-zinc-500">
-        Your policy will be saved on-chain and the agent will start monitoring
-        your position.
+        Policy saved on-chain. Agent starts monitoring immediately.
       </p>
 
       {/* Summary */}
       <div className="mt-5 space-y-2">
         <SummaryRow label="Risk Profile" value={profileLabel} />
-        <SummaryRow
-          label="Target Health Factor"
-          value={policy.targetHealthFactor.toFixed(2)}
-        />
-        <SummaryRow
-          label="Max Repay / Action"
-          value={`$${policy.maxRepayPerActionUsd}`}
-        />
-        <SummaryRow
-          label="Daily Limit"
-          value={`$${policy.maxDailyInterventionUsd}`}
-        />
-        <SummaryRow
-          label="Cooldown"
-          value={`${Math.round(policy.cooldownSeconds / 60)} min`}
-        />
+        <SummaryRow label="Target HF" value={policy.targetHealthFactor.toFixed(2)} />
+        <SummaryRow label="Max Repay / Action" value={`$${policy.maxRepayPerActionUsd}`} />
+        <SummaryRow label="Daily Limit" value={`$${policy.maxDailyInterventionUsd}`} />
+        <SummaryRow label="Cooldown" value={`${Math.round(policy.cooldownSeconds / 60)} min`} />
         <SummaryRow label="Safety Buffer" value={`$${bufferBalance}`} />
       </div>
 
-      {/* Warnings */}
       {bufferBalance <= 0 && (
         <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
           <p className="text-xs text-amber-400">
-            Buffer is empty. The agent won&apos;t be able to repay debt until you
-            fund it. You can still activate and add funds later.
+            Buffer is empty. The agent won&apos;t be able to repay until you fund it.
           </p>
         </div>
       )}
 
-      {/* Error */}
       {syncError && (
         <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3">
           <p className="text-xs text-red-400">{syncError}</p>
         </div>
       )}
 
-      {/* Devnet SOL note */}
       {!policyAddress && !syncError && (
         <p className="mt-4 text-[11px] text-zinc-600">
           Requires a small amount of devnet SOL for rent and transaction fees.
@@ -509,67 +457,30 @@ function StepActivate({
       )}
 
       <div className="mt-6 flex gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-lg border border-zinc-700 px-4 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800"
-        >
-          Back
-        </button>
-        <button
-          type="button"
+        <Button variant="outline" onClick={onBack}>Back</Button>
+        <Button
           disabled={syncDisabled || syncStatus === "saving"}
           onClick={onSyncOnChain}
-          className="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+          className="flex-1 bg-emerald-600 hover:bg-emerald-500"
         >
           {syncStatus === "saving"
             ? "Signing..."
             : policyAddress
               ? "Update & Activate"
               : "Enable AI Guard On-Chain"}
-        </button>
+        </Button>
       </div>
     </div>
   );
 }
 
-/* ────────────────────────────────────────────
-   Shared UI pieces
-   ──────────────────────────────────────────── */
+/* ── Shared ────────────────────────────────── */
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between rounded-lg bg-zinc-800/40 px-4 py-2.5">
       <span className="text-xs text-zinc-500">{label}</span>
-      <span className="text-sm font-medium text-zinc-200">{value}</span>
-    </div>
-  );
-}
-
-function NumberField({
-  label,
-  value,
-  onChange,
-  min,
-  step,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: string) => void;
-  min?: number;
-  step?: number;
-}) {
-  return (
-    <div>
-      <label className="text-xs text-zinc-500">{label}</label>
-      <input
-        type="number"
-        min={min}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none"
-      />
+      <span className="text-sm font-medium font-[family-name:var(--font-mono)] tabular-nums text-zinc-200">{value}</span>
     </div>
   );
 }
