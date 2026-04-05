@@ -59,7 +59,7 @@ export default function ExecutionHistory({
     <Card>
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-zinc-400">History</h3>
+          <h3 className="text-base font-medium text-zinc-400">History</h3>
           <Badge variant="default">{records.length}</Badge>
         </div>
 
@@ -102,12 +102,12 @@ function HistoryItem({
               </span>
             )}
           </div>
-          <span className="text-[11px] text-zinc-600 whitespace-nowrap font-[family-name:var(--font-mono)]">
+          <span className="text-sm text-zinc-600 whitespace-nowrap font-[family-name:var(--font-mono)]">
             {formatTime(record.timestamp)}
           </span>
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-zinc-500">
+        <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
           {record.healthFactorBefore != null && record.healthFactorAfter != null && (
             <span className="font-[family-name:var(--font-mono)] tabular-nums">
               HF {record.healthFactorBefore.toFixed(2)}{" "}
@@ -115,7 +115,7 @@ function HistoryItem({
               <span className="text-emerald-400">{record.healthFactorAfter.toFixed(2)}</span>
             </span>
           )}
-          <Badge variant={statusVariant(record.status)} className="text-[10px] px-1.5 py-0">
+          <Badge variant={statusVariant(record.status)} className="text-xs px-1.5 py-0">
             {STATUS_LABELS[record.status] ?? record.status}
           </Badge>
           <span>{timeAgo(record.timestamp)}</span>

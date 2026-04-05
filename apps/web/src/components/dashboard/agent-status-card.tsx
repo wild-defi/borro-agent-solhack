@@ -198,10 +198,10 @@ export default function AgentStatusCard(props: AgentStatusCardProps) {
               )}
             </div>
             <div>
-              <h2 className="text-lg font-semibold font-[family-name:var(--font-mono)]">
+              <h2 className="text-xl font-semibold font-[family-name:var(--font-mono)]">
                 AI Guard
               </h2>
-              <p className="mt-0.5 text-sm text-zinc-500">{status.description}</p>
+              <p className="mt-0.5 text-base text-zinc-500">{status.description}</p>
             </div>
           </div>
           <Badge variant={status.variant}>{status.label}</Badge>
@@ -211,19 +211,19 @@ export default function AgentStatusCard(props: AgentStatusCardProps) {
         {props.snapshot && (
           <div className="mt-5">
             <div className="flex items-baseline justify-between mb-2">
-              <span className="text-sm text-zinc-400">Safe Margin</span>
+              <span className="text-base font-medium text-zinc-400">Safe Margin</span>
               <div className="flex items-baseline gap-2">
-                <span className={`text-2xl font-bold font-[family-name:var(--font-mono)] tabular-nums ${
+                <span className={`text-3xl font-bold font-[family-name:var(--font-mono)] tabular-nums ${
                   safeMargin > 25 ? "text-emerald-400" : safeMargin > 10 ? "text-amber-400" : "text-red-400"
                 }`}>
                   {animatedMargin}%
                 </span>
-                <span className="text-xs text-zinc-600">
+                <span className="text-base text-zinc-600">
                   HF {animatedHf.toFixed(2)}
                 </span>
               </div>
             </div>
-            <div className="relative h-3 w-full rounded-full bg-zinc-800 overflow-hidden">
+            <div className="relative h-4 w-full rounded-full bg-zinc-800 overflow-hidden">
               <div
                 className="health-bar-gradient h-full rounded-full transition-all duration-700 ease-out"
                 style={{ width: `${Math.min(100, safeMargin)}%` }}
@@ -232,8 +232,8 @@ export default function AgentStatusCard(props: AgentStatusCardProps) {
               <div className="absolute top-0 left-0 h-full w-px bg-red-500/50" style={{ left: "0%" }} />
             </div>
             <div className="flex justify-between mt-1.5">
-              <span className="text-[10px] text-red-400/60">Liquidation</span>
-              <span className="text-[10px] text-emerald-400/60">Safe</span>
+              <span className="text-sm text-red-400/60">Liquidation</span>
+              <span className="text-sm text-emerald-400/60">Safe</span>
             </div>
           </div>
         )}
@@ -274,7 +274,7 @@ export default function AgentStatusCard(props: AgentStatusCardProps) {
         {/* Needs Buffer CTA */}
         {status.label === "Needs Buffer" && (
           <div className="mt-4 flex items-center justify-between rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
-            <p className="text-xs text-amber-400">
+            <p className="text-sm text-amber-400">
               Fund the buffer so the agent can repay debt on your behalf.
             </p>
             <Button
@@ -313,7 +313,7 @@ function TelemetryChip({
 }) {
   return (
     <span
-      className={`rounded-full border px-3 py-1 text-[11px] font-medium tracking-wide ${
+      className={`rounded-full border px-3 py-1 text-sm font-medium tracking-wide ${
         accent
           ? "border-zinc-700 bg-zinc-800/80 text-zinc-200"
           : "border-zinc-800/70 bg-zinc-900/60 text-zinc-500"

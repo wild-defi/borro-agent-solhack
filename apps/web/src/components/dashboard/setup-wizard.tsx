@@ -173,7 +173,7 @@ export default function SetupWizard({
                 }`}
               />
               <span
-                className={`text-[11px] font-medium ${
+                className={`text-xs font-medium ${
                   i === step ? "text-emerald-400" : i < step ? "text-zinc-400" : "text-zinc-600"
                 }`}
               >
@@ -277,7 +277,7 @@ function StepProfile({
                   <p className="mt-1 text-xs text-zinc-500">{p.description}</p>
                 </div>
                 {isSelected && (
-                  <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[11px] text-white">
+                  <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 text-xs text-white">
                     ✓
                   </span>
                 )}
@@ -380,7 +380,7 @@ function StepBuffer({
       </p>
 
       <div className="mt-5 rounded-lg border border-zinc-700/50 bg-zinc-800/30 px-5 py-5">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">Available</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-zinc-600">Available</p>
         <p className="mt-1 text-3xl font-bold font-[family-name:var(--font-mono)] tabular-nums">
           ${bufferBalance.toLocaleString()}
           <span className="ml-1.5 text-sm font-normal text-zinc-500">USDC</span>
@@ -405,7 +405,7 @@ function StepBuffer({
           </Button>
         </div>
 
-        <p className="mt-3 text-[11px] text-zinc-600">
+        <p className="mt-3 text-xs text-zinc-600">
           Demo mode — adjusts in $300 steps.
         </p>
       </div>
@@ -480,7 +480,7 @@ function StepActivate({
                     <p className="mt-0.5 text-xs text-zinc-500">{mode.tagline}</p>
                   </div>
                   {active && (
-                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[11px] text-white">
+                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 text-xs text-white">
                       ✓
                     </span>
                   )}
@@ -521,7 +521,7 @@ function StepActivate({
       )}
 
       {!policyAddress && !syncError && (
-        <p className="mt-4 text-[11px] text-zinc-600">
+        <p className="mt-4 text-xs text-zinc-600">
           Requires a small amount of devnet SOL for rent and transaction fees.
         </p>
       )}

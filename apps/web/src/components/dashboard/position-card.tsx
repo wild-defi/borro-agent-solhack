@@ -54,7 +54,7 @@ export default function PositionCard({
     <Card>
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-zinc-400">Position</h3>
+          <h3 className="text-base font-medium text-zinc-400">Position</h3>
           <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
 
@@ -99,11 +99,11 @@ function Stat({
 }) {
   return (
     <div>
-      <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">{label}</p>
-      <p className={`mt-1 text-lg font-semibold font-[family-name:var(--font-mono)] tabular-nums ${valueClass ?? "text-zinc-100"}`}>
+      <p className="text-sm font-medium uppercase tracking-wider text-zinc-600">{label}</p>
+      <p className={`mt-1 text-xl font-semibold font-[family-name:var(--font-mono)] tabular-nums ${valueClass ?? "text-zinc-100"}`}>
         {value}
       </p>
-      {sub && <p className="mt-0.5 text-[11px] text-zinc-500">{sub}</p>}
+      {sub && <p className="mt-0.5 text-sm text-zinc-500">{sub}</p>}
     </div>
   );
 }

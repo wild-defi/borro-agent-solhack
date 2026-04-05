@@ -81,10 +81,10 @@ export default function AIDecisionCard({
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium text-zinc-400">{title}</h3>
+              <h3 className="text-base font-medium text-zinc-400">{title}</h3>
               <Badge variant="default">Idle</Badge>
             </div>
-            <p className="text-xs text-zinc-600">
+            <p className="text-sm text-zinc-600">
               Use <span className="text-zinc-400">Run Check</span> to analyze
             </p>
           </div>
@@ -100,14 +100,14 @@ export default function AIDecisionCard({
           <CollapsibleTrigger asChild>
             <button type="button" className="flex w-full items-center justify-between">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-medium text-zinc-400">{title}</h3>
+                <h3 className="text-base font-medium text-zinc-400">{title}</h3>
                 <Badge variant={badge.variant} className={
                   status === "monitoring" || status === "executing" ? "animate-pulse" : ""
                 }>
                   {badge.label}
                 </Badge>
               </div>
-              <span className="text-xs text-zinc-600">
+              <span className="text-sm text-zinc-600">
                 {isOpen ? "Collapse" : "Expand"}
               </span>
             </button>
@@ -192,7 +192,7 @@ function AgentStepper({ status }: { status: AgentStatus }) {
           <div key={step.key} className="flex items-center gap-1 flex-1">
             <div className="flex flex-col items-center gap-1 flex-shrink-0">
               <div className={`h-2 w-2 rounded-full ${dotClass}`} />
-              <span className={`text-[10px] font-medium font-[family-name:var(--font-mono)] ${labelClass}`}>
+              <span className={`text-xs font-medium font-[family-name:var(--font-mono)] ${labelClass}`}>
                 {step.label}
               </span>
             </div>
@@ -240,7 +240,7 @@ function AnalysisSignal({
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span className={`h-1.5 w-1.5 rounded-full ${signalDot(level)}`} />
-        <span className="text-xs text-zinc-500">{label}</span>
+        <span className="text-sm text-zinc-500">{label}</span>
       </div>
       <span className={`text-xs font-medium font-[family-name:var(--font-mono)] tabular-nums ${signalColor(level)}`}>
         {value}

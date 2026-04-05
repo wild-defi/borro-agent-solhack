@@ -149,7 +149,7 @@ export default function PolicyForm({
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-zinc-400">Policy</h3>
+              <h3 className="text-base font-medium text-zinc-400">Policy</h3>
               <div className="flex items-center gap-2">
                 <Badge variant={syncBadge.variant}>{syncBadge.label}</Badge>
                 <Button variant="ghost" size="sm" onClick={() => setSheetOpen(true)}>
@@ -170,7 +170,7 @@ export default function PolicyForm({
               <SummaryStat label="Cooldown" value={`${Math.round(policy.cooldownSeconds / 60)}min`} />
             </div>
 
-            <div className="mt-3 flex items-center justify-between text-[11px] text-zinc-500">
+            <div className="mt-3 flex items-center justify-between text-sm text-zinc-500">
               <span>
                 Actions: {policy.allowedActions.join(" · ")}
               </span>
@@ -194,7 +194,7 @@ export default function PolicyForm({
                 </Button>
               )}
               {syncError && (
-                <p className="text-xs text-red-400">{syncError}</p>
+                <p className="text-sm text-red-400">{syncError}</p>
               )}
             </div>
           </CardContent>
@@ -285,9 +285,9 @@ export default function PolicyForm({
         <div className="mt-5 rounded-lg border border-zinc-700/50 bg-zinc-800/30 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-                On-Chain Policy
-              </p>
+                <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
+                  On-Chain Policy
+                </p>
               <p className="mt-1 text-sm text-zinc-400">
                 {policyAddress
                   ? `Policy at ${shortenAddress(policyAddress)}`
@@ -317,7 +317,7 @@ export default function PolicyForm({
             <p className="mt-2 text-sm text-red-400">{syncError}</p>
           )}
           {!policy.enabled && !policyAddress && (
-            <p className="mt-2 text-xs text-zinc-500">
+            <p className="mt-2 text-sm text-zinc-500">
               Turn on the policy toggle to save it on-chain.
             </p>
           )}
@@ -411,7 +411,7 @@ function PolicyFormFields({
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-sm text-zinc-500">
           {PROFILE_DESCRIPTIONS[policy.riskProfile]}
         </p>
       </div>
@@ -494,8 +494,8 @@ function PolicyFormFields({
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">{label}</p>
-      <p className="mt-0.5 text-sm font-semibold font-[family-name:var(--font-mono)] tabular-nums">{value}</p>
+      <p className="text-sm font-medium uppercase tracking-wider text-zinc-600">{label}</p>
+      <p className="mt-0.5 text-base font-semibold font-[family-name:var(--font-mono)] tabular-nums">{value}</p>
     </div>
   );
 }

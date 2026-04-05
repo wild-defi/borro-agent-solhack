@@ -20,13 +20,13 @@ export default function BufferCard({
   return (
     <Card>
       <CardContent className="p-5">
-        <h3 className="text-sm font-medium text-zinc-400">Safety Buffer</h3>
-        <p className="mt-0.5 text-[11px] text-zinc-600">
+        <h3 className="text-base font-medium text-zinc-400">Safety Buffer</h3>
+        <p className="mt-0.5 text-sm text-zinc-600">
           USDC reserve for fast debt repayment
         </p>
 
         <div className="mt-4">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">
+          <p className="text-sm font-medium uppercase tracking-wider text-zinc-600">
             Available
           </p>
           <p className="mt-1 text-2xl font-bold font-[family-name:var(--font-mono)] tabular-nums">
