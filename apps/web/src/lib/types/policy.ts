@@ -1,4 +1,5 @@
 export type RiskProfile = "conservative" | "balanced" | "aggressive";
+export type PolicyMode = "supervised" | "autonomous";
 
 export type AllowedAction =
   | "DO_NOTHING"
@@ -10,6 +11,7 @@ export interface Policy {
   owner: string;
   obligationId: string;
   riskProfile: RiskProfile;
+  mode: PolicyMode;
   targetHealthFactor: number;
   allowedActions: AllowedAction[];
   maxRepayPerActionUsd: number;
@@ -20,6 +22,7 @@ export interface Policy {
 
 export type PolicyConfig = Pick<
   Policy,
+  | "mode"
   | "riskProfile"
   | "targetHealthFactor"
   | "allowedActions"

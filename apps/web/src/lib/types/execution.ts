@@ -1,4 +1,8 @@
-import type { AllowedAction } from "./policy";
+import type { DecisionValidationResult } from "@/lib/risk/validation";
+
+import type { AIDecision } from "./decision";
+import type { AllowedAction, PolicyConfig } from "./policy";
+import type { PositionSnapshot } from "./snapshot";
 
 export type ExecutionMode = "mock" | "record_only" | "kamino_repay";
 
@@ -10,6 +14,14 @@ export type ExecutionStatus =
   | "rejected"
   | "simulated"
   | "logged";
+
+export interface ExecutionReasoningContext {
+  snapshot: PositionSnapshot | null;
+  policy: PolicyConfig;
+  rawDecision: AIDecision;
+  validatedDecision: AIDecision;
+  validation: DecisionValidationResult;
+}
 
 export interface ExecutionRecord {
   decisionId: string;
@@ -26,4 +38,5 @@ export interface ExecutionRecord {
   healthFactorAfter?: number;
   timestamp: number;
   reason: string;
+  reasoning?: ExecutionReasoningContext | null;
 }

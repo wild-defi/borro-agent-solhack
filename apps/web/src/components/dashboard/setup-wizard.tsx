@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PolicyConfig, PositionSnapshot, RiskProfile } from "@/lib/types";
+import type { PolicyConfig, PolicyMode, PositionSnapshot, RiskProfile } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,28 @@ const PROFILES: Array<{
     description:
       "Holds off until the last reasonable moment, then acts with larger amounts. Cheaper overall, but tolerates more risk.",
     icon: "⚡",
+  },
+];
+
+const MODE_OPTIONS: Array<{
+  value: PolicyMode;
+  label: string;
+  tagline: string;
+  description: string;
+}> = [
+  {
+    value: "supervised",
+    label: "Supervised",
+    tagline: "You approve each action",
+    description:
+      "Best for demos where you want to review the decision first, then trigger the repay manually.",
+  },
+  {
+    value: "autonomous",
+    label: "Autonomous",
+    tagline: "Borro acts in-session",
+    description:
+      "Best for showing the agent loop live. Borro checks on a short timer and can auto-execute while this tab stays open.",
   },
 ];
 
@@ -193,6 +215,7 @@ export default function SetupWizard({
               syncError={syncError}
               syncDisabled={syncDisabled}
               bufferBalance={bufferBalance}
+              onPolicyChange={onPolicyChange}
               onSyncOnChain={onSyncOnChain}
               onBack={() => setStep(1)}
             />
@@ -404,6 +427,7 @@ function StepActivate({
   syncError,
   syncDisabled,
   bufferBalance,
+  onPolicyChange,
   onSyncOnChain,
   onBack,
 }: {
@@ -413,6 +437,7 @@ function StepActivate({
   syncError: string | null;
   syncDisabled: boolean;
   bufferBalance: number;
+  onPolicyChange: (policy: PolicyConfig) => void;
   onSyncOnChain: () => void;
   onBack: () => void;
 }) {
@@ -426,8 +451,53 @@ function StepActivate({
         Policy saved on-chain. Agent starts monitoring immediately.
       </p>
 
+      <div className="mt-5">
+        <p className="text-sm font-medium text-zinc-300">Activation mode</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {MODE_OPTIONS.map((mode) => {
+            const active = policy.mode === mode.value;
+
+            return (
+              <button
+                key={mode.value}
+                type="button"
+                onClick={() => onPolicyChange({ ...policy, mode: mode.value })}
+                className={`rounded-lg border px-4 py-4 text-left transition-colors ${
+                  active
+                    ? "border-emerald-500/40 bg-emerald-500/10"
+                    : "border-zinc-700/50 bg-zinc-800/40 hover:border-zinc-600"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p
+                      className={`text-sm font-semibold ${
+                        active ? "text-emerald-300" : "text-zinc-200"
+                      }`}
+                    >
+                      {mode.label}
+                    </p>
+                    <p className="mt-0.5 text-xs text-zinc-500">{mode.tagline}</p>
+                  </div>
+                  {active && (
+                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[11px] text-white">
+                      ✓
+                    </span>
+                  )}
+                </div>
+                <p className="mt-3 text-xs text-zinc-500">{mode.description}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Summary */}
       <div className="mt-5 space-y-2">
+        <SummaryRow
+          label="Mode"
+          value={policy.mode === "autonomous" ? "Autonomous" : "Supervised"}
+        />
         <SummaryRow label="Risk Profile" value={profileLabel} />
         <SummaryRow label="Target HF" value={policy.targetHealthFactor.toFixed(2)} />
         <SummaryRow label="Max Repay / Action" value={`$${policy.maxRepayPerActionUsd}`} />

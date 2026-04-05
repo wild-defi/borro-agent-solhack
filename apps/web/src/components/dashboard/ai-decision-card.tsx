@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { calculateSuggestedRepayAmount } from "@/lib/risk/metrics";
 
 export type AgentStatus =
   | "idle"
@@ -34,6 +35,7 @@ interface AIDecisionCardProps {
   error: string | null;
   onRunCheck: () => void;
   onExecute: () => void;
+  onDeposit?: (amount?: number) => void;
   onReset: () => void;
 }
 
@@ -64,6 +66,7 @@ export default function AIDecisionCard({
   error,
   onRunCheck,
   onExecute,
+  onDeposit,
   onReset,
 }: AIDecisionCardProps) {
   const badge = STATUS_BADGE_MAP[status];
@@ -131,6 +134,7 @@ export default function AIDecisionCard({
                   showReasoning={showReasoning}
                   onToggleReasoning={() => setShowReasoning((prev) => !prev)}
                   onExecute={onExecute}
+                  onDeposit={onDeposit}
                   onReset={onReset}
                 />
               )}
@@ -245,6 +249,76 @@ function AnalysisSignal({
   );
 }
 
+type ValidationOutcome = {
+  statusLabel: "Passed" | "Adjusted" | "Blocked";
+  badgeVariant: "success" | "warning" | "danger";
+  title: string;
+  body: string;
+  proposedLabel: string;
+  finalLabel: string;
+  showChange: boolean;
+};
+
+function buildValidationOutcome(
+  rawDecision: AIDecision | null,
+  validatedDecision: AIDecision,
+  validation: DecisionValidationResult
+): ValidationOutcome {
+  const proposedDecision = rawDecision ?? validatedDecision;
+  const proposedLabel = ACTION_LABELS[proposedDecision.action];
+  const finalLabel = ACTION_LABELS[validatedDecision.action];
+  const primaryReason = validation.reasons[0];
+  const decisionChanged =
+    proposedDecision.action !== validatedDecision.action ||
+    proposedDecision.repayAmountUsd !== validatedDecision.repayAmountUsd ||
+    proposedDecision.targetHealthFactor !== validatedDecision.targetHealthFactor;
+
+  if (!validation.approved) {
+    return {
+      statusLabel: "Blocked",
+      badgeVariant: "danger",
+      title: "Guardrails blocked the proposed intervention.",
+      body:
+        primaryReason ??
+        "The proposed action does not fit the current policy or account state.",
+      proposedLabel,
+      finalLabel,
+      showChange: true,
+    };
+  }
+
+  if (validation.wasModified || decisionChanged) {
+    return {
+      statusLabel: "Adjusted",
+      badgeVariant: "warning",
+      title: "Guardrails adjusted the action to fit your limits.",
+      body:
+        primaryReason ??
+        "The final action was reduced or changed to stay within policy.",
+      proposedLabel,
+      finalLabel,
+      showChange: true,
+    };
+  }
+
+  return {
+    statusLabel: "Passed",
+    badgeVariant: "success",
+    title:
+      validatedDecision.action === "DO_NOTHING"
+        ? "No intervention is needed right now."
+        : "This action fits your policy and is ready to execute.",
+    body:
+      primaryReason ??
+      (validatedDecision.action === "DO_NOTHING"
+        ? "The current position can be left unchanged."
+        : "No policy changes were required."),
+    proposedLabel,
+    finalLabel,
+    showChange: false,
+  };
+}
+
 function DecisionView({
   snapshot,
   policy,
@@ -254,6 +328,7 @@ function DecisionView({
   showReasoning,
   onToggleReasoning,
   onExecute,
+  onDeposit,
   onReset,
 }: {
   snapshot: PositionSnapshot | null;
@@ -264,13 +339,42 @@ function DecisionView({
   showReasoning: boolean;
   onToggleReasoning: () => void;
   onExecute: () => void;
+  onDeposit?: (amount?: number) => void;
   onReset: () => void;
 }) {
   const confidencePct = Math.round(decision.confidence * 100);
-  const reasoningSignals = useMemo(
-    () => buildReasoningSignals(snapshot, rawDecision ?? decision),
-    [snapshot, rawDecision, decision]
+  const validationOutcome = buildValidationOutcome(rawDecision, decision, validation);
+  const isBufferBlocked =
+    !validation.approved &&
+    validation.reasons.includes("No safety buffer is available for repayment.");
+  const proposedRepayAmount = rawDecision?.repayAmountUsd ?? decision.repayAmountUsd;
+  const availableBuffer = snapshot?.availableBufferUsd ?? 0;
+  const estimatedFundingNeed = snapshot
+    ? calculateSuggestedRepayAmount(
+        {
+          ...snapshot,
+          availableBufferUsd: Math.min(
+            policy.maxRepayPerActionUsd,
+            snapshot.debtValueUsd
+          ),
+        },
+        decision.targetHealthFactor,
+        policy.maxRepayPerActionUsd
+      )
+    : 0;
+  const recommendedTopUp = Math.max(
+    0,
+    Math.ceil(
+      (proposedRepayAmount > 0 ? proposedRepayAmount : estimatedFundingNeed) -
+        availableBuffer
+    )
   );
+  const primaryActionLabel = isBufferBlocked
+    ? "Top Up Buffer"
+    : ACTION_LABELS[decision.action];
+  const showBufferTopUpPrompt = isBufferBlocked;
+  const showExecute = validation.approved && decision.action !== "DO_NOTHING";
+  const showDismiss = policy.mode === "supervised" && (showExecute || validationOutcome.statusLabel === "Adjusted");
 
   return (
     <div className="space-y-4">
@@ -311,14 +415,29 @@ function DecisionView({
       {/* AI Decision */}
       <div className="flex items-center gap-3">
         <Badge variant="accent" className="text-sm px-3 py-1">
-          {ACTION_LABELS[decision.action]}
+          {primaryActionLabel}
         </Badge>
         <span className="text-sm text-zinc-500 font-[family-name:var(--font-mono)]">
           {confidencePct}% confidence
         </span>
       </div>
 
-      {decision.action !== "DO_NOTHING" && (
+      {showBufferTopUpPrompt ? (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">Suggested Top Up</p>
+            <p className="mt-1 text-xl font-bold font-[family-name:var(--font-mono)] tabular-nums">
+              ${recommendedTopUp.toLocaleString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">Target HF</p>
+            <p className="mt-1 text-xl font-bold font-[family-name:var(--font-mono)] tabular-nums">
+              {decision.targetHealthFactor.toFixed(2)}
+            </p>
+          </div>
+        </div>
+      ) : decision.action !== "DO_NOTHING" && (
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">Repay Amount</p>
@@ -335,41 +454,105 @@ function DecisionView({
         </div>
       )}
 
-      <p className="text-sm text-zinc-400 italic">{decision.reason}</p>
+      {!showBufferTopUpPrompt && (
+        <p className="text-sm text-zinc-400 italic">{decision.reason}</p>
+      )}
 
-      {/* Validation */}
-      <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
-            Policy Validation
-          </span>
-          <Badge variant={validation.approved ? "success" : "danger"}>
-            {validation.approved ? "Approved" : "Rejected"}
-          </Badge>
-          {validation.wasModified && (
-            <Badge variant="warning">Modified</Badge>
-          )}
+      {showBufferTopUpPrompt ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/8 px-4 py-4">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+              Action Required
+            </span>
+            <Badge variant="warning">Needs Funding</Badge>
+          </div>
+
+          <div className="mt-3 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-zinc-100">
+                Add at least ${recommendedTopUp.toLocaleString()} to restore automatic repayment.
+              </p>
+              <p className="mt-1 text-sm text-zinc-500">
+                Health factor is below your target, but Borro cannot repay while the safety buffer is empty.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <OutcomeChip label="Need" value={`$${recommendedTopUp.toLocaleString()}`} />
+              <OutcomeChip label="Buffer Now" value={`$${availableBuffer.toLocaleString()}`} />
+              <OutcomeChip label="Target HF" value={decision.targetHealthFactor.toFixed(2)} />
+            </div>
+          </div>
         </div>
-        {validation.reasons.length > 0 && (
-          <ul className="mt-2 space-y-1">
-            {validation.reasons.map((r, i) => (
-              <li key={i} className="text-xs text-zinc-500">
-                {r}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      ) : (
+        <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 px-4 py-4">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+              Execution Check
+            </span>
+            <Badge variant={validationOutcome.badgeVariant}>
+              {validationOutcome.statusLabel}
+            </Badge>
+          </div>
+
+          <div className="mt-3 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-zinc-100">
+                {validationOutcome.title}
+              </p>
+              <p className="mt-1 text-sm text-zinc-500">
+                {validationOutcome.body}
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {validationOutcome.showChange && (
+                <div className="rounded-lg border border-zinc-700/40 bg-zinc-900/40 px-3 py-3">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+                    AI Proposed
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-zinc-200">
+                    {validationOutcome.proposedLabel}
+                  </p>
+                </div>
+              )}
+              <div className="rounded-lg border border-zinc-700/40 bg-zinc-900/40 px-3 py-3">
+                <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+                  Final Outcome
+                </p>
+                <p className="mt-1 text-sm font-medium text-zinc-200">
+                  {validationOutcome.finalLabel}
+                </p>
+              </div>
+            </div>
+
+            {validation.reasons.length > 1 && (
+              <ul className="space-y-1 text-xs text-zinc-500">
+                {validation.reasons.slice(1).map((r, i) => (
+                  <li key={i}>• {r}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-3">
-        {validation.approved && decision.action !== "DO_NOTHING" && (
+        {isBufferBlocked && onDeposit && recommendedTopUp > 0 && (
+          <Button onClick={() => onDeposit(recommendedTopUp)}>
+            Add ${recommendedTopUp.toLocaleString()} Buffer
+          </Button>
+        )}
+        {showExecute && (
           <Button onClick={onExecute}>
             Execute Decision
           </Button>
         )}
-        <Button variant="outline" onClick={onReset}>
-          Skip
-        </Button>
+        {showDismiss && (
+          <Button variant="outline" onClick={onReset}>
+            Dismiss
+          </Button>
+        )}
       </div>
 
       {/* AI Reasoning — collapsible */}
@@ -401,7 +584,6 @@ function DecisionView({
               rawDecision={rawDecision ?? decision}
               validatedDecision={decision}
               validation={validation}
-              reasoningSignals={reasoningSignals}
             />
           </CollapsibleContent>
         </div>
@@ -461,21 +643,23 @@ function DecisionSummary({ title, decision }: { title: string; decision: AIDecis
   );
 }
 
-function ReasoningPanel({
+export function ReasoningPanel({
   snapshot,
   policy,
   rawDecision,
   validatedDecision,
   validation,
-  reasoningSignals,
 }: {
   snapshot: PositionSnapshot | null;
   policy: PolicyConfig;
   rawDecision: AIDecision;
   validatedDecision: AIDecision;
   validation: DecisionValidationResult;
-  reasoningSignals: string[];
 }) {
+  const reasoningSignals = useMemo(
+    () => buildReasoningSignals(snapshot, rawDecision),
+    [snapshot, rawDecision]
+  );
   const decisionChanged =
     rawDecision.action !== validatedDecision.action ||
     rawDecision.repayAmountUsd !== validatedDecision.repayAmountUsd ||
@@ -489,6 +673,7 @@ function ReasoningPanel({
         <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Policy Context</p>
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <div><dt className="text-zinc-600 text-xs">Enabled</dt><dd className="mt-0.5 font-medium text-zinc-100">{policy.enabled ? "Yes" : "No"}</dd></div>
+          <div><dt className="text-zinc-600 text-xs">Mode</dt><dd className="mt-0.5 font-medium capitalize text-zinc-100">{policy.mode}</dd></div>
           <div><dt className="text-zinc-600 text-xs">Risk Profile</dt><dd className="mt-0.5 font-medium capitalize text-zinc-100">{policy.riskProfile}</dd></div>
           <div><dt className="text-zinc-600 text-xs">Target HF</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">{policy.targetHealthFactor.toFixed(2)}</dd></div>
           <div><dt className="text-zinc-600 text-xs">Max Repay</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">${policy.maxRepayPerActionUsd.toLocaleString()}</dd></div>
@@ -574,6 +759,14 @@ function ExecutedView({
   execution: ExecutionRecord;
   onReset: () => void;
 }) {
+  const [showReasoning, setShowReasoning] = useState(false);
+  const hfDelta =
+    execution.healthFactorBefore != null && execution.healthFactorAfter != null
+      ? Number((execution.healthFactorAfter - execution.healthFactorBefore).toFixed(2))
+      : null;
+  const isProtected =
+    execution.healthFactorAfter != null ? execution.healthFactorAfter >= 1.1 : false;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -608,17 +801,63 @@ function ExecutedView({
         )}
       </div>
 
+      <div className="rounded-lg border border-zinc-700/50 bg-zinc-900/40 px-4 py-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={isProtected ? "success" : "warning"}>
+            {isProtected ? "Position Stabilized" : "Risk Reduced"}
+          </Badge>
+          {hfDelta != null && (
+            <span className="text-xs font-medium font-[family-name:var(--font-mono)] text-emerald-400">
+              HF +{hfDelta.toFixed(2)}
+            </span>
+          )}
+        </div>
+        <p className="mt-3 text-sm text-zinc-300">
+          Borro completed an intervention and improved the position health using{" "}
+          <span className="font-medium text-zinc-100">
+            ${execution.executedAmountUsd.toLocaleString()}
+          </span>{" "}
+          through the configured repayment path.
+        </p>
+      </div>
+
       {execution.reason && (
         <p className="text-sm text-zinc-400">{execution.reason}</p>
       )}
 
-      {/* Counterfactual comparison */}
-      {execution.healthFactorBefore != null && execution.healthFactorAfter != null && (
-        <CounterfactualDisplay
-          hfBefore={execution.healthFactorBefore}
-          hfAfter={execution.healthFactorAfter}
-          repayAmount={execution.executedAmountUsd}
-        />
+      {execution.reasoning && (
+        <Collapsible open={showReasoning} onOpenChange={setShowReasoning}>
+          <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/20">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between px-4 py-3 text-left"
+              >
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+                    AI Reasoning
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-600">
+                    Snapshot, model output, and guardrail result for this execution
+                  </p>
+                </div>
+                <span className="text-xs text-emerald-400/70">
+                  {showReasoning ? "Hide" : "View"}
+                </span>
+              </button>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent>
+              <ReasoningPanel
+                snapshot={execution.reasoning.snapshot}
+                policy={execution.reasoning.policy}
+                rawDecision={execution.reasoning.rawDecision}
+                validatedDecision={execution.reasoning.validatedDecision}
+                validation={execution.reasoning.validation}
+              />
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
       )}
 
       {/* Verified on Solana */}
@@ -676,41 +915,18 @@ export function ExecutionStatusBadge({ status }: { status: ExecutionRecord["stat
   );
 }
 
-function CounterfactualDisplay({
-  hfBefore,
-  hfAfter,
-  repayAmount,
-}: {
-  hfBefore: number;
-  hfAfter: number;
-  repayAmount: number;
-}) {
-  const withoutBorroDropPct = Math.max(0, (1 - 1 / hfBefore) * 100);
-  const withBorroDropPct = Math.max(0, (1 - 1 / hfAfter) * 100);
-
+function OutcomeChip({ label, value }: { label: string; value?: string }) {
   return (
-    <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/30 px-4 py-3 space-y-3">
-      <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
-        What-If Comparison
-      </p>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2">
-          <p className="text-[10px] text-red-400 font-medium uppercase">Without Borro</p>
-          <p className="text-sm text-zinc-300 mt-1">
-            Liquidation if SOL drops <span className="text-red-400 font-semibold font-[family-name:var(--font-mono)]">{withoutBorroDropPct.toFixed(1)}%</span>
-          </p>
-        </div>
-        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
-          <p className="text-[10px] text-emerald-400 font-medium uppercase">With Borro</p>
-          <p className="text-sm text-zinc-300 mt-1">
-            Safe until SOL drops <span className="text-emerald-400 font-semibold font-[family-name:var(--font-mono)]">{withBorroDropPct.toFixed(1)}%</span>
-          </p>
-        </div>
-      </div>
-      <p className="text-xs text-zinc-600">
-        ${repayAmount} buffer repay gave {(withBorroDropPct - withoutBorroDropPct).toFixed(1)}% more safety margin
-      </p>
-    </div>
+    <span className="rounded-full border border-zinc-700/60 bg-zinc-800/60 px-3 py-1 text-[11px] text-zinc-400">
+      {value ? (
+        <>
+          <span className="text-zinc-500">{label}</span>{" "}
+          <span className="font-medium text-zinc-200">{value}</span>
+        </>
+      ) : (
+        label
+      )}
+    </span>
   );
 }
 
