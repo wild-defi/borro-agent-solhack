@@ -8,6 +8,7 @@ export function buildDecisionSystemPrompt() {
     "Choose the safest valid action for the user's current position.",
     "Prefer DO_NOTHING when the position is healthy.",
     "Prefer REPAY_FROM_BUFFER when health factor is below target and buffer is available.",
+    "Weigh short-term market stress, especially SOL 24h price change and the Pyth confidence band, when deciding whether to intervene early.",
     "Never suggest a repay amount larger than the available buffer or the debt.",
   ].join(" ");
 }
@@ -28,6 +29,13 @@ export function buildDecisionUserPrompt(
         maxRepayPerActionUsd: policy?.maxRepayPerActionUsd ?? 500,
       },
       snapshot,
+      marketContext: {
+        solPriceChange24h: snapshot.solPriceChange24h,
+        pythConfidenceBandPct: Number(
+          (snapshot.oracleConfidenceRatio * 100).toFixed(3)
+        ),
+        volatilityScore: snapshot.volatilityScore,
+      },
       instructions: {
         output: {
           action:

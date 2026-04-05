@@ -1,8 +1,8 @@
 import type { PositionSnapshot } from "@/lib/types";
 import { fetchUserPosition, type KaminoPositionData } from "@/lib/solana/kamino";
+import { fetchSolMarketSignals } from "@/lib/services/market-data";
 import {
   calculateDistanceToLiquidation,
-  calculateVolatilityScore,
 } from "@/lib/risk/metrics";
 
 const DEMO_OBLIGATION_ADDRESS = "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF";
@@ -11,16 +11,24 @@ const MOCK_POSITION_BASE = {
   collateralValueUsd: 4900,
   debtValueUsd: 3800,
   oracleConfidence: 0.89,
+  oracleConfidenceRatio: 0.0015,
+  solPriceChange24h: 0,
   availableBufferUsd: 0,
 };
 
-function getMockPosition(): PositionSnapshot {
+async function getMockPosition(): Promise<PositionSnapshot> {
   const s = MOCK_POSITION_BASE;
   const liquidationThreshold = 80;
   const ltv = Number(((s.debtValueUsd / s.collateralValueUsd) * 100).toFixed(2));
   const healthFactor = Number((liquidationThreshold / ltv).toFixed(2));
-  const distanceToLiquidation = Number((((liquidationThreshold - ltv) / liquidationThreshold) * 100).toFixed(2));
-  const volatilityScore = Number((1 - s.oracleConfidence + (ltv > 70 ? 0.3 : 0)).toFixed(2));
+  const distanceToLiquidation = Number(
+    (((liquidationThreshold - ltv) / liquidationThreshold) * 100).toFixed(2)
+  );
+  const marketSignals = await fetchSolMarketSignals(distanceToLiquidation, {
+    oracleConfidence: s.oracleConfidence,
+    oracleConfidenceRatio: s.oracleConfidenceRatio,
+    solPriceChange24h: s.solPriceChange24h,
+  });
 
   return {
     obligationAddress: DEMO_OBLIGATION_ADDRESS,
@@ -33,33 +41,37 @@ function getMockPosition(): PositionSnapshot {
     liquidationThreshold,
     distanceToLiquidation,
     availableBufferUsd: s.availableBufferUsd,
-    oracleConfidence: s.oracleConfidence,
-    volatilityScore,
+    oracleConfidence: marketSignals.oracleConfidence,
+    oracleConfidenceRatio: marketSignals.oracleConfidenceRatio,
+    solPriceChange24h: marketSignals.solPriceChange24h,
+    volatilityScore: marketSignals.volatilityScore,
     timestamp: Date.now(),
   };
 }
 
-function toSnapshot(
+async function toSnapshot(
   data: KaminoPositionData,
   walletAddress: string
-): PositionSnapshot {
+): Promise<PositionSnapshot> {
   const distanceToLiquidation = calculateDistanceToLiquidation(
     data.ltv,
     data.liquidationThreshold
   );
-  const oracleConfidence = 0.95; // TODO: fetch from Pyth
-  const volatilityScore = calculateVolatilityScore(
-    oracleConfidence,
-    distanceToLiquidation
-  );
+  const marketSignals = await fetchSolMarketSignals(distanceToLiquidation, {
+    oracleConfidence: 0.95,
+    oracleConfidenceRatio: 0.001,
+    solPriceChange24h: 0,
+  });
 
   return {
     ...data,
     obligationAddress: data.obligationAddress ?? walletAddress,
     distanceToLiquidation,
     availableBufferUsd: 0, // will be filled from buffer vault later
-    oracleConfidence,
-    volatilityScore,
+    oracleConfidence: marketSignals.oracleConfidence,
+    oracleConfidenceRatio: marketSignals.oracleConfidenceRatio,
+    solPriceChange24h: marketSignals.solPriceChange24h,
+    volatilityScore: marketSignals.volatilityScore,
     timestamp: Date.now(),
   };
 }

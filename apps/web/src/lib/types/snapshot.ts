@@ -10,6 +10,8 @@ export interface PositionSnapshot {
   distanceToLiquidation: number;
   availableBufferUsd: number;
   oracleConfidence: number;
+  oracleConfidenceRatio: number;
+  solPriceChange24h: number;
   volatilityScore: number;
   timestamp: number;
 }

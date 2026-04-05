@@ -43,7 +43,8 @@ function buildFallbackDecision(
   const shouldRepay =
     snapshot.healthFactor < targetHealthFactor ||
     snapshot.distanceToLiquidation < 10 ||
-    snapshot.volatilityScore > 0.7;
+    snapshot.volatilityScore > 0.7 ||
+    snapshot.solPriceChange24h <= -5;
 
   const repayAmountUsd =
     shouldRepay && allowedActions.includes("REPAY_FROM_BUFFER")
@@ -71,6 +72,16 @@ function buildFallbackDecision(
         `elevated volatility score of ${snapshot.volatilityScore.toFixed(2)}`
       );
     }
+    if (snapshot.solPriceChange24h <= -5) {
+      triggers.push(
+        `SOL is down ${Math.abs(snapshot.solPriceChange24h).toFixed(1)}% over the last 24h`
+      );
+    }
+    if (snapshot.oracleConfidenceRatio >= 0.003) {
+      triggers.push(
+        `Pyth confidence band widened to ${(snapshot.oracleConfidenceRatio * 100).toFixed(2)}% of price`
+      );
+    }
 
     return {
       action: "REPAY_FROM_BUFFER",
@@ -88,7 +99,7 @@ function buildFallbackDecision(
     repayAmountUsd: 0,
     confidence: clampConfidence((snapshot.oracleConfidence + 0.85) / 2),
     reason:
-      `Position is healthy: health factor ${snapshot.healthFactor.toFixed(2)} meets target ${targetHealthFactor.toFixed(2)}, ${snapshot.distanceToLiquidation.toFixed(1)}% from liquidation. No intervention needed.`,
+      `Position is stable: health factor ${snapshot.healthFactor.toFixed(2)} is near target ${targetHealthFactor.toFixed(2)}, SOL 24h change is ${snapshot.solPriceChange24h.toFixed(1)}%, and the Pyth confidence band is ${(snapshot.oracleConfidenceRatio * 100).toFixed(2)}% of price. No intervention needed.`,
   };
 }
 

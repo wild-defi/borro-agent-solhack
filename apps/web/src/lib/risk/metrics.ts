@@ -12,11 +12,16 @@ export function calculateDistanceToLiquidation(
 
 export function calculateVolatilityScore(
   oracleConfidence: number,
-  distanceToLiquidation: number
+  distanceToLiquidation: number,
+  solPriceChange24h = 0
 ): number {
   const confidencePenalty = Math.max(0, 1 - oracleConfidence);
   const liquidationPressure = Math.max(0, 1 - distanceToLiquidation / 20);
-  const score = confidencePenalty * 0.4 + liquidationPressure * 0.6;
+  const marketStress = Math.min(1, Math.max(0, -solPriceChange24h) / 12);
+  const score =
+    confidencePenalty * 0.25 +
+    liquidationPressure * 0.5 +
+    marketStress * 0.25;
 
   return Number(Math.min(1, Math.max(0, score)).toFixed(2));
 }

@@ -395,14 +395,19 @@ function DecisionView({
             level={snapshot.distanceToLiquidation < 5 ? "danger" : snapshot.distanceToLiquidation < 10 ? "warning" : "safe"}
           />
           <AnalysisSignal
+            label="SOL 24h Change"
+            value={`${snapshot.solPriceChange24h >= 0 ? "+" : ""}${snapshot.solPriceChange24h.toFixed(1)}%`}
+            level={snapshot.solPriceChange24h <= -5 ? "danger" : snapshot.solPriceChange24h <= -2 ? "warning" : "safe"}
+          />
+          <AnalysisSignal
             label="Volatility"
             value={snapshot.volatilityScore.toFixed(2)}
             level={snapshot.volatilityScore > 0.7 ? "danger" : snapshot.volatilityScore > 0.4 ? "warning" : "safe"}
           />
           <AnalysisSignal
-            label="Oracle Confidence"
-            value={`${Math.round(snapshot.oracleConfidence * 100)}%`}
-            level={snapshot.oracleConfidence < 0.5 ? "danger" : snapshot.oracleConfidence < 0.8 ? "warning" : "safe"}
+            label="Pyth Confidence Band"
+            value={`${(snapshot.oracleConfidenceRatio * 100).toFixed(2)}% of price`}
+            level={snapshot.oracleConfidenceRatio > 0.005 ? "danger" : snapshot.oracleConfidenceRatio > 0.002 ? "warning" : "safe"}
           />
           <AnalysisSignal
             label="Buffer Available"
@@ -604,11 +609,16 @@ function buildReasoningSignals(
   if (snapshot.distanceToLiquidation < 10) {
     signals.push(`Position is only ${snapshot.distanceToLiquidation.toFixed(1)}% away from liquidation.`);
   }
+  if (snapshot.solPriceChange24h <= -2) {
+    signals.push(`SOL is down ${Math.abs(snapshot.solPriceChange24h).toFixed(1)}% over the last 24 hours, which adds downside pressure to the collateral.`);
+  } else if (snapshot.solPriceChange24h >= 2) {
+    signals.push(`SOL is up ${snapshot.solPriceChange24h.toFixed(1)}% over the last 24 hours, which slightly eases immediate liquidation pressure.`);
+  }
   if (snapshot.volatilityScore > 0.4) {
     signals.push(`Volatility score ${snapshot.volatilityScore.toFixed(2)} suggests unstable market conditions.`);
   }
-  if (snapshot.oracleConfidence < 0.9) {
-    signals.push(`Oracle confidence is ${Math.round(snapshot.oracleConfidence * 100)}%, so the model should stay conservative.`);
+  if (snapshot.oracleConfidenceRatio > 0.002) {
+    signals.push(`Pyth confidence band widened to ${(snapshot.oracleConfidenceRatio * 100).toFixed(2)}% of price, so the model should stay conservative.`);
   }
   if (snapshot.availableBufferUsd > 0) {
     signals.push(`Safety buffer has $${snapshot.availableBufferUsd.toLocaleString()} available for fast repayment.`);
@@ -691,8 +701,9 @@ export function ReasoningPanel({
             <div><dt className="text-zinc-600 text-xs">LTV</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">{snapshot.ltv.toFixed(2)}%</dd></div>
             <div><dt className="text-zinc-600 text-xs">Dist. to Liq</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">{snapshot.distanceToLiquidation.toFixed(2)}%</dd></div>
             <div><dt className="text-zinc-600 text-xs">Buffer</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">${snapshot.availableBufferUsd.toLocaleString()}</dd></div>
+            <div><dt className="text-zinc-600 text-xs">SOL 24h</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">{snapshot.solPriceChange24h >= 0 ? "+" : ""}{snapshot.solPriceChange24h.toFixed(2)}%</dd></div>
             <div><dt className="text-zinc-600 text-xs">Volatility</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">{snapshot.volatilityScore.toFixed(2)}</dd></div>
-            <div><dt className="text-zinc-600 text-xs">Oracle Conf.</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">{Math.round(snapshot.oracleConfidence * 100)}%</dd></div>
+            <div><dt className="text-zinc-600 text-xs">Pyth Band</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">{(snapshot.oracleConfidenceRatio * 100).toFixed(2)}%</dd></div>
           </dl>
           {reasoningSignals.length > 0 && (
             <ul className="mt-3 space-y-1">
