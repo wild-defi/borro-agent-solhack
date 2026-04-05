@@ -12,6 +12,8 @@ export interface PositionSnapshot {
   oracleConfidence: number;
   oracleConfidenceRatio: number;
   solPriceChange24h: number;
+  fearGreedValue: number;
+  fearGreedClassification: string;
   volatilityScore: number;
   timestamp: number;
 }

@@ -13,6 +13,8 @@ const MOCK_POSITION_BASE = {
   oracleConfidence: 0.89,
   oracleConfidenceRatio: 0.0015,
   solPriceChange24h: 0,
+  fearGreedValue: 50,
+  fearGreedClassification: "Neutral",
   availableBufferUsd: 0,
 };
 
@@ -28,6 +30,8 @@ async function getMockPosition(): Promise<PositionSnapshot> {
     oracleConfidence: s.oracleConfidence,
     oracleConfidenceRatio: s.oracleConfidenceRatio,
     solPriceChange24h: s.solPriceChange24h,
+    fearGreedValue: s.fearGreedValue,
+    fearGreedClassification: s.fearGreedClassification,
   });
 
   return {
@@ -44,6 +48,8 @@ async function getMockPosition(): Promise<PositionSnapshot> {
     oracleConfidence: marketSignals.oracleConfidence,
     oracleConfidenceRatio: marketSignals.oracleConfidenceRatio,
     solPriceChange24h: marketSignals.solPriceChange24h,
+    fearGreedValue: marketSignals.fearGreedValue,
+    fearGreedClassification: marketSignals.fearGreedClassification,
     volatilityScore: marketSignals.volatilityScore,
     timestamp: Date.now(),
   };
@@ -61,6 +67,8 @@ async function toSnapshot(
     oracleConfidence: 0.95,
     oracleConfidenceRatio: 0.001,
     solPriceChange24h: 0,
+    fearGreedValue: 50,
+    fearGreedClassification: "Neutral",
   });
 
   return {
@@ -71,6 +79,8 @@ async function toSnapshot(
     oracleConfidence: marketSignals.oracleConfidence,
     oracleConfidenceRatio: marketSignals.oracleConfidenceRatio,
     solPriceChange24h: marketSignals.solPriceChange24h,
+    fearGreedValue: marketSignals.fearGreedValue,
+    fearGreedClassification: marketSignals.fearGreedClassification,
     volatilityScore: marketSignals.volatilityScore,
     timestamp: Date.now(),
   };

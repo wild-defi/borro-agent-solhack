@@ -259,12 +259,12 @@
 #### Priority 2 — If Time Allows
 - [x] **"Enable AI Guard" button** — on-chain policy creation/update from UI (user signs tx → PolicyAccount created or updated)
 - [x] **"View AI Reasoning" toggle** — show full AI input/output pipeline on decision card
-- [ ] **Real market signals for AI reasoning** — replace mocked `oracleConfidence` and `volatilityScore` with live data (~1h work):
-  - **Pyth oracle** (`@pythnetwork/hermes-client` already installed) — real SOL/USD confidence interval → replaces hardcoded `oracleConfidence: 0.95` in `position-service.ts`
-  - **CoinGecko SOL 24h change** — free, no API key, adds `solPriceChange24h` to snapshot → AI reasons "SOL down 8% in 24h, HF will keep falling"
-  - **Fear & Greed Index** (`api.alternative.me/fng/`) — bonus signal, 10 min to add, gives AI market-wide context
-  - Prompt update: include new fields in `buildDecisionUserPrompt()` so AI explicitly weighs them
-  - Impact: AI reason goes from generic to specific and verifiable by judges
+- [x] **Real market signals for AI reasoning** — replaced mocked market context with live data:
+  - **Pyth oracle** (`@pythnetwork/hermes-client`) — live SOL/USD confidence interval now drives the displayed `Pyth Confidence Band`
+  - **CoinGecko SOL 24h change** — live `solPriceChange24h` is now part of the snapshot and reasoning
+  - **Fear & Greed Index** (`api.alternative.me/fng/`) — adds a simple market-wide regime signal (`Fear`, `Neutral`, `Greed`) for AI reasoning
+  - Prompt update: `buildDecisionUserPrompt()` now includes all three market signals so AI weighs them explicitly
+  - Impact: AI reason is now specific and externally verifiable by judges
 
 **Additional completed work:**
 - [x] Dashboard fetches existing on-chain `PolicyAccount` by PDA for the current wallet + obligation
@@ -280,6 +280,7 @@
 - [x] Empty-buffer blocked state upgraded — when repayment is blocked by an empty safety buffer, the dashboard now recommends topping up the buffer instead of presenting a misleading `No Action Needed` fallback
 - [x] Executed assessment card simplified — removed the extra `What-if Comparison` panel and tightened the execution outcome presentation
 - [x] Dashboard typography refined — improved badge sizing, card headings, stat labels, and monospaced numeric hierarchy for better readability in demos
+- [x] Live market context expanded again — `Fear & Greed` now appears in both `Position Analysis` and `AI Reasoning`, alongside SOL 24h change and the Pyth confidence band
 
 **Current blocker / note:**
 - `Enable AI Guard On-Chain` on devnet still requires the connected wallet to hold a small amount of devnet SOL for rent and transaction fees. The UI now pre-checks this and shows a friendly error before Phantom simulation, but the wallet still needs funding to complete policy creation.

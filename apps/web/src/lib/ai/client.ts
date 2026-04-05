@@ -44,7 +44,8 @@ function buildFallbackDecision(
     snapshot.healthFactor < targetHealthFactor ||
     snapshot.distanceToLiquidation < 10 ||
     snapshot.volatilityScore > 0.7 ||
-    snapshot.solPriceChange24h <= -5;
+    snapshot.solPriceChange24h <= -5 ||
+    snapshot.fearGreedValue <= 25;
 
   const repayAmountUsd =
     shouldRepay && allowedActions.includes("REPAY_FROM_BUFFER")
@@ -82,6 +83,11 @@ function buildFallbackDecision(
         `Pyth confidence band widened to ${(snapshot.oracleConfidenceRatio * 100).toFixed(2)}% of price`
       );
     }
+    if (snapshot.fearGreedValue <= 25) {
+      triggers.push(
+        `Fear & Greed sits at ${snapshot.fearGreedValue} (${snapshot.fearGreedClassification.toLowerCase()})`
+      );
+    }
 
     return {
       action: "REPAY_FROM_BUFFER",
@@ -99,7 +105,7 @@ function buildFallbackDecision(
     repayAmountUsd: 0,
     confidence: clampConfidence((snapshot.oracleConfidence + 0.85) / 2),
     reason:
-      `Position is stable: health factor ${snapshot.healthFactor.toFixed(2)} is near target ${targetHealthFactor.toFixed(2)}, SOL 24h change is ${snapshot.solPriceChange24h.toFixed(1)}%, and the Pyth confidence band is ${(snapshot.oracleConfidenceRatio * 100).toFixed(2)}% of price. No intervention needed.`,
+      `Position is stable: health factor ${snapshot.healthFactor.toFixed(2)} is near target ${targetHealthFactor.toFixed(2)}, SOL 24h change is ${snapshot.solPriceChange24h.toFixed(1)}%, the Pyth confidence band is ${(snapshot.oracleConfidenceRatio * 100).toFixed(2)}% of price, and Fear & Greed is ${snapshot.fearGreedValue} (${snapshot.fearGreedClassification.toLowerCase()}). No intervention needed.`,
   };
 }
 

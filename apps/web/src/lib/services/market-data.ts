@@ -4,21 +4,28 @@ import { calculateVolatilityScore } from "@/lib/risk/metrics";
 const PYTH_HERMES_URL = process.env.PYTH_HERMES_URL ?? "https://hermes.pyth.network";
 const COINGECKO_SIMPLE_PRICE_URL =
   "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true";
+const FEAR_GREED_URL = "https://api.alternative.me/fng/?limit=1&format=json";
 
 const DEFAULT_ORACLE_CONFIDENCE = 0.89;
 const DEFAULT_ORACLE_CONFIDENCE_RATIO = 0.0015;
 const DEFAULT_SOL_PRICE_CHANGE_24H = 0;
+const DEFAULT_FEAR_GREED_VALUE = 50;
+const DEFAULT_FEAR_GREED_CLASSIFICATION = "Neutral";
 
 interface MarketSignalFallbacks {
   oracleConfidence?: number;
   oracleConfidenceRatio?: number;
   solPriceChange24h?: number;
+  fearGreedValue?: number;
+  fearGreedClassification?: string;
 }
 
 export interface SolMarketSignals {
   oracleConfidence: number;
   oracleConfidenceRatio: number;
   solPriceChange24h: number;
+  fearGreedValue: number;
+  fearGreedClassification: string;
   volatilityScore: number;
 }
 
@@ -155,6 +162,44 @@ async function fetchCoinGeckoSolChange24h() {
   }
 }
 
+async function fetchFearAndGreedSignal() {
+  try {
+    const response = await fetch(FEAR_GREED_URL, {
+      headers: {
+        Accept: "application/json",
+      },
+      next: { revalidate: 600 },
+      signal: AbortSignal.timeout(3500),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Fear & Greed API responded with ${response.status}`);
+    }
+
+    const payload = (await response.json()) as {
+      data?: Array<{
+        value?: string;
+        value_classification?: string;
+      }>;
+    };
+
+    const latest = payload.data?.[0];
+    const value = Number(latest?.value);
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+
+    return {
+      fearGreedValue: Number(value.toFixed(0)),
+      fearGreedClassification:
+        latest?.value_classification?.trim() || DEFAULT_FEAR_GREED_CLASSIFICATION,
+    };
+  } catch (error) {
+    console.warn("Failed to fetch Fear & Greed Index:", error);
+    return null;
+  }
+}
+
 export async function fetchSolMarketSignals(
   distanceToLiquidation: number,
   fallbacks: MarketSignalFallbacks = {}
@@ -162,9 +207,11 @@ export async function fetchSolMarketSignals(
   const [
     pythSignalResult,
     solChangeResult,
+    fearGreedResult,
   ] = await Promise.allSettled([
     fetchPythConfidenceSignal(),
     fetchCoinGeckoSolChange24h(),
+    fetchFearAndGreedSignal(),
   ]);
 
   const oracleConfidence =
@@ -182,16 +229,29 @@ export async function fetchSolMarketSignals(
       ? solChangeResult.value
       : fallbacks.solPriceChange24h ?? DEFAULT_SOL_PRICE_CHANGE_24H;
 
+  const fearGreedValue =
+    fearGreedResult.status === "fulfilled" && fearGreedResult.value
+      ? fearGreedResult.value.fearGreedValue
+      : fallbacks.fearGreedValue ?? DEFAULT_FEAR_GREED_VALUE;
+
+  const fearGreedClassification =
+    fearGreedResult.status === "fulfilled" && fearGreedResult.value
+      ? fearGreedResult.value.fearGreedClassification
+      : fallbacks.fearGreedClassification ?? DEFAULT_FEAR_GREED_CLASSIFICATION;
+
   const volatilityScore = calculateVolatilityScore(
     oracleConfidence,
     distanceToLiquidation,
-    solPriceChange24h
+    solPriceChange24h,
+    fearGreedValue
   );
 
   return {
     oracleConfidence,
     oracleConfidenceRatio,
     solPriceChange24h,
+    fearGreedValue,
+    fearGreedClassification,
     volatilityScore,
   };
 }

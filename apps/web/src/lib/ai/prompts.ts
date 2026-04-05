@@ -8,7 +8,7 @@ export function buildDecisionSystemPrompt() {
     "Choose the safest valid action for the user's current position.",
     "Prefer DO_NOTHING when the position is healthy.",
     "Prefer REPAY_FROM_BUFFER when health factor is below target and buffer is available.",
-    "Weigh short-term market stress, especially SOL 24h price change and the Pyth confidence band, when deciding whether to intervene early.",
+    "Weigh short-term market stress, especially SOL 24h price change, the Pyth confidence band, and the Fear & Greed Index, when deciding whether to intervene early.",
     "Never suggest a repay amount larger than the available buffer or the debt.",
   ].join(" ");
 }
@@ -34,6 +34,8 @@ export function buildDecisionUserPrompt(
         pythConfidenceBandPct: Number(
           (snapshot.oracleConfidenceRatio * 100).toFixed(3)
         ),
+        fearGreedValue: snapshot.fearGreedValue,
+        fearGreedClassification: snapshot.fearGreedClassification,
         volatilityScore: snapshot.volatilityScore,
       },
       instructions: {

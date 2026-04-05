@@ -1,61 +1,65 @@
 # Borro Agent
 
-**Borro Agent** is an autonomous AI risk manager for lending positions on Solana. It monitors a user's Kamino borrowing position, evaluates liquidation risk, executes on-chain protective actions before the position reaches a critical state, and can later support carry trade strategies built on top of the same lending infrastructure.
+**Borro Agent** is an autonomous AI risk manager for lending positions on Solana. It monitors a user's Kamino borrowing position, evaluates liquidation risk, proposes or executes protective actions, and records intervention state through a custom Solana program.
 
-Instead of waiting for liquidation, Borro Agent acts earlier. It analyzes market volatility, oracle confidence, position health, and user-defined risk policy to choose the safest recovery strategy and submit a real blockchain transaction.
+The current hackathon MVP focuses on **liquidation prevention**. The broader product direction is a capital-management agent that can later expand into **carry trade automation** using the same policy, monitoring, and guardrail framework.
+
+## One-Line Pitch
+
+**Borro Agent is an autonomous AI guard for Solana lending positions that prevents liquidation by selecting and executing on-chain protective actions based on market conditions and user-defined policy.**
 
 ## Problem
 
-Lending users deposit volatile collateral such as `SOL`, `BTC`, or `ETH` and borrow `USDC`.
+Lending users deposit volatile collateral such as `SOL` and borrow stablecoins such as `USDC`.
 
 When the market moves quickly:
 - collateral value drops
 - `LTV` rises
-- the position approaches liquidation
-- the user may be offline and unable to react in time
+- health factor deteriorates
+- the user may be offline and unable to react before liquidation
 
-Existing liquidation bots protect protocols, not users. They step in only after a position becomes unsafe, and the borrower still loses part of the collateral.
+Existing liquidation bots protect the protocol, not the borrower. They act after the position becomes unsafe.
 
 ## Solution
 
-Borro Agent is built as a **liquidation prevention layer** for the user:
-- continuously monitors the health of a Kamino position
-- evaluates market conditions with an AI decision engine
-- validates the proposed action against user policy and hard safety rules
-- executes a real on-chain protection transaction
-- logs decisions transparently through a custom Solana program
+Borro Agent acts as a **user-side liquidation prevention layer**:
+- reads a Kamino position
+- evaluates risk with AI plus deterministic guardrails
+- enforces a user-defined protection policy
+- repays from a safety buffer when allowed
+- logs decisions on-chain through **Borro Guard**
 
-In the expanded product vision, the same agent framework can also support **carry trade strategies**, where the agent opens and manages capital-efficient lending and borrowing positions according to user-defined risk and yield preferences.
+## Current MVP Status
 
-## Why This Is Not Just a Script
+### Working today
 
-A simple risk bot uses one hardcoded rule:
-
-`if health_factor < threshold -> repay`
-
-Borro Agent does more:
-- chooses between multiple allowed strategies
-- adapts to the user's risk profile
-- considers volatility, oracle confidence, buffer availability, and position state
-- can use a safety buffer before selling collateral
-- records decisions and execution metadata on-chain
-
-This makes Borro Agent an **Autonomous Lending Risk Manager**, not just a liquidation script.
+- Solana wallet connect from the landing page
+- Kamino position dashboard
+- setup flow for policy, buffer, and guard activation
+- on-chain `PolicyAccount` create/update from UI
+- autonomous or supervised monitoring mode
+- AI decision engine with structured output
+- deterministic validation layer
+- `REPAY_FROM_BUFFER` flow in `mock`, `record_only`, or `kamino_repay` modes
+- on-chain decision logging through Borro Guard
+- AI reasoning UI with live market signals
+- execution history with reasoning per intervention
 
 ## Core User Flow
 
-1. The user connects a wallet and views their Kamino position.
-2. The user enables AI Guard and creates a protection policy.
-3. The user optionally deposits `USDC` into a safety buffer vault.
-4. Borro Agent monitors the position every few minutes.
-5. The AI chooses one action from an allowed set.
-6. The system validates the decision against hard guardrails.
-7. A real on-chain transaction is executed.
-8. The UI shows the updated health factor, action reason, and transaction signature.
+1. User lands on the site and clicks `Open Dashboard`.
+2. Wallet modal opens directly from the landing page.
+3. User connects Phantom and enters the dashboard.
+4. Borro reads the position and shows the current health state.
+5. User configures policy, funds the safety buffer, and enables AI Guard on-chain.
+6. Borro monitors in either `supervised` or `autonomous` mode.
+7. AI proposes an action.
+8. Deterministic guardrails validate, adjust, or block it.
+9. The dashboard shows reasoning, execution status, and on-chain evidence.
 
 ## AI Decision Model
 
-The AI does not have unlimited control. It can only return a structured decision inside a predefined action set:
+The AI can only return a structured decision inside a bounded action set:
 
 - `DO_NOTHING`
 - `REPAY_FROM_BUFFER`
@@ -66,21 +70,54 @@ Example output:
 
 ```json
 {
-  "action": "REPAY_WITH_COLLATERAL",
-  "target_health_factor": 1.35,
-  "repay_amount_usdc": 420,
-  "collateral_to_sell": "SOL",
-  "confidence": 0.84,
-  "reason": "SOL volatility is rising, oracle confidence is weaker, and buffer is insufficient for safe recovery."
+  "action": "REPAY_FROM_BUFFER",
+  "targetHealthFactor": 1.25,
+  "repayAmountUsd": 300,
+  "confidence": 0.85,
+  "reason": "Health factor is below target, SOL is down sharply, and the confidence band is widening."
 }
 ```
 
+## AI vs Deterministic Logic
+
+**AI proposes. The system enforces.**
+
+### AI reasons over:
+- health factor
+- distance to liquidation
+- available buffer
+- volatility score
+- `SOL` 24h price change
+- `Pyth` confidence band
+- `Fear & Greed` market regime
+
+### Deterministic guardrails enforce:
+- allowed actions only
+- max repay per intervention
+- max daily intervention cap
+- cooldown windows
+- buffer availability
+- policy enabled / paused state
+
+This separation is the core safety model of the product.
+
+## Live Market Signals In Reasoning
+
+The dashboard now includes live market context in both the visible analysis block and the full reasoning panel:
+
+- **SOL 24h Change** via CoinGecko
+- **Pyth Confidence Band** via Pyth Hermes
+- **Fear & Greed Index** via Alternative.me
+
+This makes Borro's reasoning auditable and concrete. Instead of a generic explanation, the agent can explain decisions in terms of:
+- weakening collateral trend
+- higher oracle uncertainty
+- risk-off market regime
+
 ## Safety Model
 
-AI proposes. The system enforces.
-
-Borro Agent validates every action before execution:
-- only actions allowed by the user's policy can run
+Borro Agent validates every AI decision before execution:
+- only policy-approved actions can run
 - repay amount is capped
 - daily intervention limits are enforced
 - cooldown rules prevent over-trading
@@ -88,16 +125,19 @@ Borro Agent validates every action before execution:
 
 ## On-Chain Component
 
-To make the system verifiable and aligned with the hackathon requirements, Borro Agent includes a custom Solana program called **Borro Guard**.
+The custom Solana program is **Borro Guard**.
 
 It stores:
-- user risk policy
+- user protection policy
 - allowed actions
-- safety buffer settings
+- pause state
+- safety buffer metadata
 - decision logs
-- intervention history
 
-This makes the product more than an off-chain bot integrated with an existing lending protocol.
+### Devnet deployment
+
+- Program ID: `7XZ4WDsPMAiJwVGpt52QVk69mQ5HqjcMcobwEyh4s9gv`
+- IDL account: `E6PBzD8EsWMpyTj1yCK7EEqwn8ogi9ourZysgmgivsen`
 
 ## Architecture
 
@@ -110,13 +150,13 @@ This makes the product more than an off-chain bot integrated with an existing le
         +------------------------------+
         |                              |
         v                              v
-[ Borro Guard Program ]         [ Monitoring / AI Service ]
+[ Borro Guard Program ]         [ Monitoring / AI Layer ]
         |                              |
-        | stores policy, logs,         | fetches Kamino position,
-        | limits and history           | oracle data and volatility
+        | stores policy and logs       | reads Kamino, Pyth, CoinGecko,
+        |                              | Fear & Greed, and market state
         |                              |
         |                              v
-        |                       [ LLM Decision Engine ]
+        |                       [ OpenAI Decision Engine ]
         |                              |
         +<--------- validation --------+
         |
@@ -127,51 +167,141 @@ This makes the product more than an off-chain bot integrated with an existing le
 [ Solana ]
         |
         +--> Kamino
-        +--> Jupiter
-        +--> Oracle / Pyth
+        +--> Pyth
+        +--> Borro Guard
 ```
+
+## Execution Modes
+
+Execution can run in three modes:
+
+- `mock`
+  - simulates repayment and projected HF improvement
+- `record_only`
+  - writes the decision log on-chain through Borro Guard
+- `kamino_repay`
+  - attempts the real repay flow for the configured demo wallet path
+
+This lets us demo the same product loop at different levels of realism.
 
 ## MVP Scope
 
 To keep the hackathon build focused:
-- 1 lending protocol: `Kamino`
-- 1 collateral asset: `SOL`
-- 1 debt asset: `USDC`
-- 3 main actions:
-  - `DO_NOTHING`
-  - `REPAY_FROM_BUFFER`
-  - `REPAY_WITH_COLLATERAL`
+- protocol: `Kamino`
+- primary collateral demo: `SOL`
+- primary debt demo: `USDC`
+- working execution path: `REPAY_FROM_BUFFER`
+- user policy and logging: `Borro Guard`
 
-## Demo Scenario
+## Demo Flow
 
-The demo should show a complete end-to-end loop:
+The intended demo loop is:
 
-1. A user opens or imports a risky Kamino position.
-2. The user enables AI Guard and sets a policy.
-3. The user funds a safety buffer.
-4. The system detects increased liquidation risk.
-5. The AI returns a structured action.
-6. The action is validated.
-7. A real on-chain repayment or deleveraging transaction is executed.
-8. The UI shows improved position health and the final transaction hash.
+1. Connect wallet from landing page
+2. Open dashboard
+3. Configure guard policy
+4. Fund buffer
+5. Enable AI Guard on-chain
+6. Trigger or wait for assessment
+7. Show AI reasoning
+8. Show validated action
+9. Show on-chain log or repay result
+10. Show improved health factor
+
+## Local Setup
+
+### Prerequisites
+
+- Node.js `20`
+- Rust
+- Solana CLI
+- Anchor
+
+### Web app env
+
+Copy [apps/web/.env.example](./apps/web/.env.example) to `apps/web/.env.local` and set:
+
+- `NEXT_PUBLIC_CLUSTER`
+- `NEXT_PUBLIC_SOLANA_RPC_URL`
+- `SOLANA_RPC_URL`
+- `NEXT_PUBLIC_BORRO_PROGRAM_ID`
+- `BORRO_PROGRAM_ID`
+- `OPENAI_API_KEY`
+- `EXECUTION_MODE`
+
+### Worker env
+
+Copy [workers/monitor/.env.example](./workers/monitor/.env.example) to `workers/monitor/.env` and set:
+
+- `SOLANA_RPC_URL`
+- `BORRO_PROGRAM_ID`
+- `BORRO_API_URL`
+- `OPENAI_API_KEY`
+- `EXECUTION_MODE`
+- `MONITOR_WALLET`
+
+## Run Locally
+
+### Web
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+### Worker
+
+```bash
+cd workers/monitor
+npm install
+npm run dev
+```
+
+### Anchor program
+
+```bash
+cd programs/borro-guard
+yarn install
+anchor build
+anchor test --skip-build
+```
+
+## Verification
+
+The project has been repeatedly verified with:
+
+```bash
+cd apps/web
+/opt/homebrew/opt/node@20/bin/node ./node_modules/next/dist/bin/next build --webpack
+```
+
+and for Anchor:
+
+```bash
+cd programs/borro-guard
+anchor build
+anchor test --skip-build
+```
 
 ## Why It Fits The Hackathon
 
 Borro Agent matches the `AI + Blockchain: Autonomous Smart Contracts` case because:
 - AI is part of decision-making
-- AI decisions lead to on-chain state changes
-- the system is semi-autonomous or autonomous
+- AI decisions lead to on-chain state changes or on-chain logs
+- the system can operate in supervised or autonomous mode
 - the project includes a deployed Solana program
-- the demo can clearly show the full loop:
+- the demo can show:
 
-`AI -> decision -> transaction -> smart contract state change`
+`AI -> reasoning -> validation -> transaction/log -> smart contract state change`
 
 ## Tech Stack
 
 - `Solana`
 - `Kamino`
-- `Jupiter`
 - `Pyth`
+- `CoinGecko`
+- `Alternative.me Fear & Greed`
 - `Anchor`
 - `Next.js`
 - `TypeScript`
@@ -183,15 +313,5 @@ Borro Agent matches the `AI + Blockchain: Autonomous Smart Contracts` case becau
 - [MVP Backlog](./MVP_Backlog.md)
 - [Signing and Custody Models](./Signing_Custody_Models.md)
 - [Hackathon Brief](./National_Solana_Hackathon_Brief.md)
+- [Progress Tracker](./PROGRESS.md)
 
-## Repository Policy
-
-Files in this project must be pushed only to:
-
-- [wild-defi/borro-agent-solhack](https://github.com/wild-defi/borro-agent-solhack)
-
-Do not push this project's files to any other repository.
-
-## One-Line Pitch
-
-**Borro Agent is an autonomous AI guard for Solana lending positions that prevents liquidation by selecting and executing on-chain protective actions based on market conditions and user risk policy.**

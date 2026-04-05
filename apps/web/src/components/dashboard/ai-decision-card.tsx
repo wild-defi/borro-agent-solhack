@@ -375,6 +375,10 @@ function DecisionView({
   const showBufferTopUpPrompt = isBufferBlocked;
   const showExecute = validation.approved && decision.action !== "DO_NOTHING";
   const showDismiss = policy.mode === "supervised" && (showExecute || validationOutcome.statusLabel === "Adjusted");
+  const topUpSummary =
+    recommendedTopUp > 0
+      ? `Add at least $${recommendedTopUp.toLocaleString()} to restore automatic repayment.`
+      : "Add funds to restore automatic repayment.";
 
   return (
     <div className="space-y-4">
@@ -408,6 +412,11 @@ function DecisionView({
             label="Pyth Confidence Band"
             value={`${(snapshot.oracleConfidenceRatio * 100).toFixed(2)}% of price`}
             level={snapshot.oracleConfidenceRatio > 0.005 ? "danger" : snapshot.oracleConfidenceRatio > 0.002 ? "warning" : "safe"}
+          />
+          <AnalysisSignal
+            label="Fear & Greed"
+            value={`${snapshot.fearGreedValue} (${snapshot.fearGreedClassification})`}
+            level={snapshot.fearGreedValue < 25 ? "danger" : snapshot.fearGreedValue < 45 ? "warning" : "safe"}
           />
           <AnalysisSignal
             label="Buffer Available"
@@ -475,7 +484,7 @@ function DecisionView({
           <div className="mt-3 space-y-3">
             <div>
               <p className="text-sm font-medium text-zinc-100">
-                Add at least ${recommendedTopUp.toLocaleString()} to restore automatic repayment.
+                {topUpSummary}
               </p>
               <p className="mt-1 text-sm text-zinc-500">
                 Health factor is below your target, but Borro cannot repay while the safety buffer is empty.
@@ -486,6 +495,7 @@ function DecisionView({
               <OutcomeChip label="Need" value={`$${recommendedTopUp.toLocaleString()}`} />
               <OutcomeChip label="Buffer Now" value={`$${availableBuffer.toLocaleString()}`} />
               <OutcomeChip label="Target HF" value={decision.targetHealthFactor.toFixed(2)} />
+              <OutcomeChip label="Final Outcome" value="Top Up Buffer" />
             </div>
           </div>
         </div>
@@ -620,6 +630,11 @@ function buildReasoningSignals(
   if (snapshot.oracleConfidenceRatio > 0.002) {
     signals.push(`Pyth confidence band widened to ${(snapshot.oracleConfidenceRatio * 100).toFixed(2)}% of price, so the model should stay conservative.`);
   }
+  if (snapshot.fearGreedValue <= 25) {
+    signals.push(`Fear & Greed is ${snapshot.fearGreedValue} (${snapshot.fearGreedClassification}), which signals a risk-off market regime.`);
+  } else if (snapshot.fearGreedValue <= 45) {
+    signals.push(`Fear & Greed is ${snapshot.fearGreedValue} (${snapshot.fearGreedClassification}), which keeps the model slightly defensive.`);
+  }
   if (snapshot.availableBufferUsd > 0) {
     signals.push(`Safety buffer has $${snapshot.availableBufferUsd.toLocaleString()} available for fast repayment.`);
   }
@@ -704,6 +719,7 @@ export function ReasoningPanel({
             <div><dt className="text-zinc-600 text-xs">SOL 24h</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">{snapshot.solPriceChange24h >= 0 ? "+" : ""}{snapshot.solPriceChange24h.toFixed(2)}%</dd></div>
             <div><dt className="text-zinc-600 text-xs">Volatility</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">{snapshot.volatilityScore.toFixed(2)}</dd></div>
             <div><dt className="text-zinc-600 text-xs">Pyth Band</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">{(snapshot.oracleConfidenceRatio * 100).toFixed(2)}%</dd></div>
+            <div><dt className="text-zinc-600 text-xs">Fear & Greed</dt><dd className="mt-0.5 font-medium text-zinc-100 font-[family-name:var(--font-mono)]">{snapshot.fearGreedValue} ({snapshot.fearGreedClassification})</dd></div>
           </dl>
           {reasoningSignals.length > 0 && (
             <ul className="mt-3 space-y-1">
