@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PolicyConfig, RiskProfile } from "@/lib/types";
+import type { PolicyConfig, PolicyMode, RiskProfile } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,28 @@ const PROFILE_LABELS: Record<RiskProfile, string> = {
   balanced: "Smart Balance",
   aggressive: "Max Efficiency",
 };
+
+const MODE_OPTIONS: Array<{
+  value: PolicyMode;
+  label: string;
+  sub: string;
+  description: string;
+}> = [
+  {
+    value: "supervised",
+    label: "Supervised",
+    sub: "Review before action",
+    description:
+      "Borro analyzes continuously, but you still approve interventions manually.",
+  },
+  {
+    value: "autonomous",
+    label: "Autonomous",
+    sub: "Acts in this tab",
+    description:
+      "Borro checks on a timer and can execute within policy limits while this dashboard tab stays open.",
+  },
+];
 
 interface PolicyFormProps {
   policy: PolicyConfig;
@@ -137,7 +159,11 @@ export default function PolicyForm({
             </div>
 
             {/* Summary grid */}
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              <SummaryStat
+                label="Mode"
+                value={policy.mode === "autonomous" ? "Auto" : "Review"}
+              />
               <SummaryStat label="Profile" value={PROFILE_LABELS[policy.riskProfile]} />
               <SummaryStat label="Target HF" value={policy.targetHealthFactor.toFixed(2)} />
               <SummaryStat label="Max/Action" value={`$${policy.maxRepayPerActionUsd}`} />
@@ -318,6 +344,49 @@ function PolicyFormFields({
 }) {
   return (
     <>
+      <div>
+        <Label>Operating Mode</Label>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {MODE_OPTIONS.map((mode) => {
+            const active = policy.mode === mode.value;
+
+            return (
+              <button
+                key={mode.value}
+                type="button"
+                onClick={() => updatePolicy("mode", mode.value)}
+                className={`rounded-lg border px-4 py-3 text-left transition-colors ${
+                  active
+                    ? "border-emerald-500/40 bg-emerald-500/10"
+                    : "border-zinc-800 bg-zinc-800/40 hover:border-zinc-700"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p
+                      className={`text-sm font-medium ${
+                        active ? "text-emerald-300" : "text-zinc-200"
+                      }`}
+                    >
+                      {mode.label}
+                    </p>
+                    <p className="mt-0.5 text-[11px] uppercase tracking-wider text-zinc-600">
+                      {mode.sub}
+                    </p>
+                  </div>
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      active ? "bg-emerald-400 glow-emerald" : "bg-zinc-600"
+                    }`}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-zinc-500">{mode.description}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Risk profile selector */}
       <div>
         <Label>Risk Profile</Label>

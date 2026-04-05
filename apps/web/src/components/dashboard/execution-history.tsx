@@ -1,8 +1,12 @@
 "use client";
 
+import { useState } from "react";
+
 import type { AllowedAction, ExecutionRecord } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
+import { ReasoningPanel } from "@/components/dashboard/ai-decision-card";
 
 const ACTION_LABELS: Record<AllowedAction, string> = {
   DO_NOTHING: "No Action",
@@ -29,7 +33,7 @@ function dotColor(record: ExecutionRecord): string {
 }
 
 function statusVariant(status: string): "success" | "danger" | "warning" | "default" {
-  if (status === "logged" || status === "confirmed") return "success";
+  if (status === "logged" || status === "confirmed" || status === "simulated") return "success";
   if (status === "failed") return "danger";
   if (status === "rejected") return "warning";
   return "default";
@@ -38,6 +42,7 @@ function statusVariant(status: string): "success" | "danger" | "warning" | "defa
 const STATUS_LABELS: Record<string, string> = {
   logged: "On-chain",
   confirmed: "Confirmed",
+  simulated: "Simulated",
   failed: "Failed",
   rejected: "Rejected",
   pending: "Pending",
@@ -61,63 +66,96 @@ export default function ExecutionHistory({
         {/* Timeline */}
         <div className="relative">
           {records.map((record, i) => {
-            const isLast = i === records.length - 1;
-            return (
-              <div key={record.decisionId} className="relative flex gap-3">
-                {/* Timeline rail */}
-                <div className="flex flex-col items-center">
-                  <div className={`mt-1 h-2.5 w-2.5 rounded-full flex-shrink-0 ${dotColor(record)}`} />
-                  {!isLast && (
-                    <div className="w-px flex-1 bg-zinc-800 min-h-[24px]" />
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className={`flex-1 pb-4 ${isLast ? "pb-0" : ""}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium text-zinc-200 truncate">
-                        {ACTION_LABELS[record.action]}
-                      </span>
-                      {record.executedAmountUsd > 0 && (
-                        <span className="text-sm font-semibold font-[family-name:var(--font-mono)] tabular-nums text-zinc-300">
-                          ${record.executedAmountUsd.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[11px] text-zinc-600 whitespace-nowrap font-[family-name:var(--font-mono)]">
-                      {formatTime(record.timestamp)}
-                    </span>
-                  </div>
-
-                  <div className="mt-1 flex items-center gap-3 text-[11px] text-zinc-500">
-                    {record.healthFactorBefore != null && record.healthFactorAfter != null && (
-                      <span className="font-[family-name:var(--font-mono)] tabular-nums">
-                        HF {record.healthFactorBefore.toFixed(2)}{" "}
-                        <span className="text-zinc-600">→</span>{" "}
-                        <span className="text-emerald-400">{record.healthFactorAfter.toFixed(2)}</span>
-                      </span>
-                    )}
-                    <Badge variant={statusVariant(record.status)} className="text-[10px] px-1.5 py-0">
-                      {STATUS_LABELS[record.status] ?? record.status}
-                    </Badge>
-                    {record.txSignature && (
-                      <a
-                        href={`https://solscan.io/tx/${record.txSignature}?cluster=devnet`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-emerald-400/70 hover:text-emerald-400 underline"
-                      >
-                        tx
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
+            return <HistoryItem key={record.decisionId} record={record} isLast={i === records.length - 1} />;
           })}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function HistoryItem({
+  record,
+  isLast,
+}: {
+  record: ExecutionRecord;
+  isLast: boolean;
+}) {
+  const [showReasoning, setShowReasoning] = useState(false);
+
+  return (
+    <div className="relative flex gap-3">
+      <div className="flex flex-col items-center">
+        <div className={`mt-1 h-2.5 w-2.5 rounded-full flex-shrink-0 ${dotColor(record)}`} />
+        {!isLast && <div className="w-px flex-1 bg-zinc-800 min-h-[24px]" />}
+      </div>
+
+      <div className={`flex-1 pb-4 ${isLast ? "pb-0" : ""}`}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-medium text-zinc-200 truncate">
+              {ACTION_LABELS[record.action]}
+            </span>
+            {record.executedAmountUsd > 0 && (
+              <span className="text-sm font-semibold font-[family-name:var(--font-mono)] tabular-nums text-zinc-300">
+                ${record.executedAmountUsd.toLocaleString()}
+              </span>
+            )}
+          </div>
+          <span className="text-[11px] text-zinc-600 whitespace-nowrap font-[family-name:var(--font-mono)]">
+            {formatTime(record.timestamp)}
+          </span>
+        </div>
+
+        <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-zinc-500">
+          {record.healthFactorBefore != null && record.healthFactorAfter != null && (
+            <span className="font-[family-name:var(--font-mono)] tabular-nums">
+              HF {record.healthFactorBefore.toFixed(2)}{" "}
+              <span className="text-zinc-600">→</span>{" "}
+              <span className="text-emerald-400">{record.healthFactorAfter.toFixed(2)}</span>
+            </span>
+          )}
+          <Badge variant={statusVariant(record.status)} className="text-[10px] px-1.5 py-0">
+            {STATUS_LABELS[record.status] ?? record.status}
+          </Badge>
+          <span>{timeAgo(record.timestamp)}</span>
+          {record.txSignature && (
+            <a
+              href={`https://solscan.io/tx/${record.txSignature}?cluster=devnet`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-400/70 hover:text-emerald-400 underline"
+            >
+              tx
+            </a>
+          )}
+          {record.reasoning && (
+            <button
+              type="button"
+              onClick={() => setShowReasoning((prev) => !prev)}
+              className="text-emerald-400/70 hover:text-emerald-400"
+            >
+              {showReasoning ? "Hide Reasoning" : "View Reasoning"}
+            </button>
+          )}
+        </div>
+
+        {record.reasoning && (
+          <Collapsible open={showReasoning} onOpenChange={setShowReasoning}>
+            <CollapsibleContent className="mt-3">
+              <div className="overflow-hidden rounded-lg border border-zinc-700/50 bg-zinc-800/20">
+                <ReasoningPanel
+                  snapshot={record.reasoning.snapshot}
+                  policy={record.reasoning.policy}
+                  rawDecision={record.reasoning.rawDecision}
+                  validatedDecision={record.reasoning.validatedDecision}
+                  validation={record.reasoning.validation}
+                />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+      </div>
+    </div>
   );
 }

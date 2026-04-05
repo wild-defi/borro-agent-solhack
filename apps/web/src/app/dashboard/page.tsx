@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   useAnchorWallet,
   useConnection,
@@ -30,6 +30,7 @@ import type {
 } from "@/lib/types";
 
 const DEFAULT_POLICY: PolicyConfig = {
+  mode: "supervised",
   enabled: false,
   riskProfile: "balanced",
   targetHealthFactor: 1.25,
@@ -38,6 +39,12 @@ const DEFAULT_POLICY: PolicyConfig = {
   maxDailyInterventionUsd: 1500,
   cooldownSeconds: 300,
 };
+
+const INITIAL_AUTONOMOUS_DELAY_MS = 3_000;
+
+function getAutonomousIntervalSeconds(cooldownSeconds: number) {
+  return Math.min(30, Math.max(15, cooldownSeconds));
+}
 
 function applyExecutionToSnapshot(
   snapshot: PositionSnapshot,
@@ -89,6 +96,54 @@ function applyExecutionToSnapshot(
   };
 }
 
+function cloneDecision(decision: AIDecision): AIDecision {
+  return { ...decision };
+}
+
+function clonePolicy(policy: PolicyConfig): PolicyConfig {
+  return {
+    ...policy,
+    allowedActions: [...policy.allowedActions],
+  };
+}
+
+function cloneSnapshot(snapshot: PositionSnapshot | null): PositionSnapshot | null {
+  return snapshot ? { ...snapshot } : null;
+}
+
+function cloneValidation(
+  validation: DecisionValidationResult
+): DecisionValidationResult {
+  return {
+    ...validation,
+    reasons: [...validation.reasons],
+    originalDecision: cloneDecision(validation.originalDecision),
+    validatedDecision: cloneDecision(validation.validatedDecision),
+  };
+}
+
+function attachReasoningContext(
+  execution: ExecutionRecord,
+  context: {
+    snapshot: PositionSnapshot | null;
+    policy: PolicyConfig;
+    rawDecision: AIDecision;
+    validatedDecision: AIDecision;
+    validation: DecisionValidationResult;
+  }
+): ExecutionRecord {
+  return {
+    ...execution,
+    reasoning: {
+      snapshot: cloneSnapshot(context.snapshot),
+      policy: clonePolicy(context.policy),
+      rawDecision: cloneDecision(context.rawDecision),
+      validatedDecision: cloneDecision(context.validatedDecision),
+      validation: cloneValidation(context.validation),
+    },
+  };
+}
+
 export default function DashboardPage() {
   const { connected, publicKey } = useWallet();
   const { connection } = useConnection();
@@ -119,19 +174,28 @@ export default function DashboardPage() {
   const [executionHistory, setExecutionHistory] = useState<ExecutionRecord[]>(
     []
   );
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
+  const [nextCheckAt, setNextCheckAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const hasOnChainPolicy = Boolean(currentPolicyAddress);
   const isGuardActive = hasOnChainPolicy && currentPolicy.enabled;
   const isPolicyConfigured = currentPolicy.enabled;
   const hasFundedBuffer = (currentSnapshot?.availableBufferUsd ?? 0) > 0;
+  const autonomousIntervalSeconds = useMemo(
+    () => getAutonomousIntervalSeconds(currentPolicy.cooldownSeconds),
+    [currentPolicy.cooldownSeconds]
+  );
+  const autonomousRunningRef = useRef(false);
 
   const resetAssessmentState = useCallback(() => {
     setAgentStatus("idle");
     setCurrentRawDecision(null);
     setCurrentDecision(null);
-    setCurrentValidation(null);
-    setCurrentExecution(null);
-    setError(null);
+      setCurrentValidation(null);
+      setCurrentExecution(null);
+      setLastCheckedAt(null);
+      setNextCheckAt(null);
+      setError(null);
   }, []);
 
   const loadBorroConfig = useCallback(async () => {
@@ -204,13 +268,19 @@ export default function DashboardPage() {
         );
 
         if (record) {
-          setCurrentPolicy(record.policy);
+          setCurrentPolicy((prev) => ({
+            ...record.policy,
+            mode: prev.mode ?? DEFAULT_POLICY.mode,
+          }));
           setCurrentPolicyAddress(record.policyAddress);
           setPolicySyncStatus("saved");
           return;
         }
 
-        setCurrentPolicy(DEFAULT_POLICY);
+        setCurrentPolicy((prev) => ({
+          ...DEFAULT_POLICY,
+          mode: prev.mode ?? DEFAULT_POLICY.mode,
+        }));
         setCurrentPolicyAddress(null);
         setPolicySyncStatus("idle");
       } catch (err) {
@@ -294,6 +364,7 @@ export default function DashboardPage() {
       setCurrentRawDecision(data.rawDecision);
       setCurrentDecision(data.validatedDecision);
       setCurrentValidation(data.validation);
+      setLastCheckedAt(Date.now());
       setAgentStatus("decision_ready");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
@@ -330,11 +401,21 @@ export default function DashboardPage() {
       }
 
       const execution: ExecutionRecord = data.execution;
-      setCurrentExecution(execution);
+      const executionWithReasoning =
+        currentValidation != null
+          ? attachReasoningContext(execution, {
+              snapshot: currentSnapshot,
+              policy: currentPolicy,
+              rawDecision: currentRawDecision ?? currentDecision,
+              validatedDecision: currentDecision,
+              validation: currentValidation,
+            })
+          : execution;
+      setCurrentExecution(executionWithReasoning);
       setCurrentSnapshot((prev) =>
-        prev ? applyExecutionToSnapshot(prev, execution) : prev
+        prev ? applyExecutionToSnapshot(prev, executionWithReasoning) : prev
       );
-      setExecutionHistory((prev) => [execution, ...prev]);
+      setExecutionHistory((prev) => [executionWithReasoning, ...prev]);
       setAgentStatus("executed");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
@@ -355,6 +436,130 @@ export default function DashboardPage() {
     setPolicySyncError(null);
     resetAssessmentState();
   }, [resetAssessmentState]);
+
+  const performAutonomousCycle = useEffectEvent(async () => {
+    if (
+      autonomousRunningRef.current ||
+      !publicKey ||
+      !currentSnapshot ||
+      !isGuardActive ||
+      currentPolicy.mode !== "autonomous"
+    ) {
+      return;
+    }
+
+    autonomousRunningRef.current = true;
+    setAgentStatus("monitoring");
+    setError(null);
+    setCurrentExecution(null);
+
+    try {
+      const analysisResponse = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wallet: publicKey.toBase58(),
+          snapshot: currentSnapshot,
+          policy: currentPolicy,
+        }),
+      });
+      const analysisData = await analysisResponse.json();
+
+      if (!analysisResponse.ok) {
+        throw new Error(analysisData.error ?? "Failed to get AI decision");
+      }
+
+      const checkedAt = Date.now();
+      setLastCheckedAt(checkedAt);
+      setCurrentSnapshot(analysisData.snapshot);
+      setCurrentRawDecision(analysisData.rawDecision);
+      setCurrentDecision(analysisData.validatedDecision);
+      setCurrentValidation(analysisData.validation);
+
+      const canAutoExecute =
+        analysisData.validation?.approved &&
+        analysisData.validatedDecision?.action === "REPAY_FROM_BUFFER";
+
+      if (!canAutoExecute) {
+        setAgentStatus("decision_ready");
+        return;
+      }
+
+      setAgentStatus("executing");
+
+      const executeResponse = await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wallet: publicKey.toBase58(),
+          mock: true,
+          snapshot: analysisData.snapshot,
+          decision: analysisData.validatedDecision,
+          policy: currentPolicy,
+          policyAddress: currentPolicyAddress ?? undefined,
+        }),
+      });
+      const executeData = await executeResponse.json();
+
+      if (!executeResponse.ok) {
+        throw new Error(executeData.error ?? "Execution failed");
+      }
+
+      const execution: ExecutionRecord = executeData.execution;
+      const executionWithReasoning =
+        analysisData.validation != null
+          ? attachReasoningContext(execution, {
+              snapshot: analysisData.snapshot,
+              policy: currentPolicy,
+              rawDecision: analysisData.rawDecision,
+              validatedDecision: analysisData.validatedDecision,
+              validation: analysisData.validation,
+            })
+          : execution;
+      const updatedSnapshot = applyExecutionToSnapshot(
+        analysisData.snapshot,
+        executionWithReasoning
+      );
+
+      setCurrentExecution(executionWithReasoning);
+      setCurrentSnapshot(updatedSnapshot);
+      setExecutionHistory((prev) => [executionWithReasoning, ...prev]);
+      setAgentStatus("executed");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Autonomous cycle failed");
+      setAgentStatus("idle");
+    } finally {
+      autonomousRunningRef.current = false;
+      if (isGuardActive && currentPolicy.mode === "autonomous") {
+        setNextCheckAt(Date.now() + autonomousIntervalSeconds * 1_000);
+      }
+    }
+  });
+
+  useEffect(() => {
+    if (!isGuardActive || currentPolicy.mode !== "autonomous") {
+      setNextCheckAt(null);
+      return;
+    }
+
+    setNextCheckAt(Date.now() + INITIAL_AUTONOMOUS_DELAY_MS);
+  }, [autonomousIntervalSeconds, isGuardActive, currentPolicy.mode, publicKey]);
+
+  useEffect(() => {
+    if (
+      !isGuardActive ||
+      currentPolicy.mode !== "autonomous" ||
+      nextCheckAt == null
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void performAutonomousCycle();
+    }, Math.max(0, nextCheckAt - Date.now()));
+
+    return () => window.clearTimeout(timeout);
+  }, [currentPolicy.mode, isGuardActive, nextCheckAt, performAutonomousCycle]);
 
   const syncPolicyOnChain = useCallback(async (policyToSync: PolicyConfig) => {
     if (!anchorWallet || !publicKey || !currentSnapshot?.obligationAddress) {
@@ -509,16 +714,17 @@ export default function DashboardPage() {
               <AgentStatusCard
                 snapshot={currentSnapshot}
                 policy={currentPolicy}
-                policyAddress={currentPolicyAddress!}
                 agentStatus={agentStatus}
                 currentDecision={currentDecision}
                 currentExecution={currentExecution}
                 interventionCount={executionHistory.filter(
                   (r) => r.status !== "rejected" && r.status !== "failed"
                 ).length}
+                lastCheckedAt={lastCheckedAt}
+                nextCheckAt={nextCheckAt}
+                autonomousIntervalSeconds={autonomousIntervalSeconds}
                 onRunCheck={handleRunCheck}
                 onDeposit={handleDepositBuffer}
-                onPauseGuard={handlePauseGuard}
               />
               {/* Two-column: Position + Buffer */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -1,6 +1,13 @@
 "use client";
 
-import type { AIDecision, ExecutionRecord, PolicyConfig, PositionSnapshot, RiskProfile } from "@/lib/types";
+import { useEffect, useState } from "react";
+import type {
+  AIDecision,
+  ExecutionRecord,
+  PolicyConfig,
+  PositionSnapshot,
+  RiskProfile,
+} from "@/lib/types";
 import type { AgentStatus } from "./ai-decision-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,14 +23,15 @@ const PROFILE_LABELS: Record<RiskProfile, string> = {
 interface AgentStatusCardProps {
   snapshot: PositionSnapshot | null;
   policy: PolicyConfig;
-  policyAddress: string;
   agentStatus: AgentStatus;
   currentDecision: AIDecision | null;
   currentExecution: ExecutionRecord | null;
   interventionCount: number;
+  lastCheckedAt: number | null;
+  nextCheckAt: number | null;
+  autonomousIntervalSeconds: number;
   onRunCheck: () => void;
   onDeposit: () => void;
-  onPauseGuard: () => void;
 }
 
 function timeAgo(timestamp: number): string {
@@ -31,10 +39,6 @@ function timeAgo(timestamp: number): string {
   if (seconds < 60) return `${seconds}s ago`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   return `${Math.floor(seconds / 3600)}h ago`;
-}
-
-function shortenAddress(address: string) {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 type StatusInfo = {
@@ -45,6 +49,15 @@ type StatusInfo = {
 };
 
 function resolveStatus(props: AgentStatusCardProps): StatusInfo {
+  if (props.policy.mode === "autonomous" && props.agentStatus === "monitoring") {
+    return {
+      label: "Autonomous Sweep",
+      variant: "info",
+      description: "Borro is running a scheduled autonomous check.",
+      healthy: false,
+    };
+  }
+
   if (props.agentStatus === "executing") {
     return {
       label: "Intervening",
@@ -56,9 +69,13 @@ function resolveStatus(props: AgentStatusCardProps): StatusInfo {
 
   if (props.agentStatus === "decision_ready") {
     return {
-      label: "Decision Ready",
+      label:
+        props.policy.mode === "autonomous" ? "Assessment Complete" : "Decision Ready",
       variant: "warning",
-      description: "A validated action is ready for review.",
+      description:
+        props.policy.mode === "autonomous"
+          ? "The latest autonomous check completed and updated the live assessment."
+          : "A validated action is ready for review.",
       healthy: false,
     };
   }
@@ -101,9 +118,12 @@ function resolveStatus(props: AgentStatusCardProps): StatusInfo {
   }
 
   return {
-    label: "Monitoring",
-    variant: "default",
-    description: "Borro is ready to monitor this position.",
+    label: props.policy.mode === "autonomous" ? "Autonomous Armed" : "Monitoring",
+    variant: props.policy.mode === "autonomous" ? "info" : "default",
+    description:
+      props.policy.mode === "autonomous"
+        ? "Borro will keep checking on a timer and can act within your limits."
+        : "Borro is ready to monitor this position.",
     healthy: false,
   };
 }
@@ -141,8 +161,24 @@ export default function AgentStatusCard(props: AgentStatusCardProps) {
     (props.currentDecision ? props.snapshot?.timestamp : null) ??
     props.snapshot?.timestamp ??
     null;
+  const [now, setNow] = useState(Date.now());
 
   const isPulsing = status.healthy || props.agentStatus === "executing" || props.agentStatus === "monitoring";
+  const autonomousCountdownSeconds = props.nextCheckAt
+    ? Math.max(0, Math.ceil((props.nextCheckAt - now) / 1000))
+    : null;
+
+  useEffect(() => {
+    if (props.policy.mode !== "autonomous" || !props.nextCheckAt) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [props.policy.mode, props.nextCheckAt]);
 
   return (
     <Card className={`relative overflow-hidden transition-colors ${
@@ -202,6 +238,39 @@ export default function AgentStatusCard(props: AgentStatusCardProps) {
           </div>
         )}
 
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-zinc-500">
+          <TelemetryChip
+            accent
+            label={props.policy.mode === "autonomous" ? "Auto" : "Review"}
+          />
+          <TelemetryChip label={PROFILE_LABELS[props.policy.riskProfile]} />
+          <TelemetryChip
+            label={`Buffer $${Number(props.snapshot?.availableBufferUsd ?? 0).toLocaleString()}`}
+          />
+          <TelemetryChip
+            label={
+              props.interventionCount === 0
+                ? "No interventions yet"
+                : `${props.interventionCount} intervention${
+                    props.interventionCount > 1 ? "s" : ""
+                  }`
+            }
+          />
+          <TelemetryChip
+            label={`Last check ${
+              props.lastCheckedAt ? timeAgo(props.lastCheckedAt) : "pending"
+            }`}
+          />
+          {props.policy.mode === "autonomous" && (
+            <TelemetryChip
+              accent={autonomousCountdownSeconds != null && autonomousCountdownSeconds <= 10}
+              label={`Next in ${
+                autonomousCountdownSeconds != null ? `${autonomousCountdownSeconds}s` : "queued"
+              }`}
+            />
+          )}
+        </div>
+
         {/* Needs Buffer CTA */}
         {status.label === "Needs Buffer" && (
           <div className="mt-4 flex items-center justify-between rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
@@ -219,34 +288,12 @@ export default function AgentStatusCard(props: AgentStatusCardProps) {
           </div>
         )}
 
-        {/* Stats row */}
-        <div className="mt-5 grid grid-cols-3 gap-3">
-          <StatCell
-            label="Policy"
-            value={shortenAddress(props.policyAddress)}
-            sub={PROFILE_LABELS[props.policy.riskProfile]}
-          />
-          <StatCell
-            label="Buffer"
-            value={`$${(props.snapshot?.availableBufferUsd ?? 0).toLocaleString()}`}
-            sub="USDC available"
-          />
-          <StatCell
-            label="Activity"
-            value={lastEventAt ? timeAgo(lastEventAt) : "—"}
-            sub={
-              props.interventionCount === 0
-                ? "No interventions"
-                : `${props.interventionCount} intervention${props.interventionCount > 1 ? "s" : ""}`
-            }
-          />
-        </div>
-
         {/* Action */}
-        <div className="mt-5">
+        <div className="mt-5 flex flex-wrap items-center gap-3">
           <Button
             onClick={props.onRunCheck}
             disabled={props.agentStatus === "monitoring" || props.agentStatus === "executing"}
+            variant="ghost"
             className="w-full sm:w-auto"
           >
             {props.agentStatus === "monitoring" ? "Checking..." : "Run Check"}
@@ -257,20 +304,22 @@ export default function AgentStatusCard(props: AgentStatusCardProps) {
   );
 }
 
-function StatCell({
+function TelemetryChip({
   label,
-  value,
-  sub,
+  accent = false,
 }: {
   label: string;
-  value: string;
-  sub: string;
+  accent?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-800/60 bg-zinc-800/20 px-3 py-2.5">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">{label}</p>
-      <p className="mt-1 text-sm font-semibold font-[family-name:var(--font-mono)] tabular-nums">{value}</p>
-      <p className="mt-0.5 text-[11px] text-zinc-500">{sub}</p>
-    </div>
+    <span
+      className={`rounded-full border px-3 py-1 text-[11px] font-medium tracking-wide ${
+        accent
+          ? "border-zinc-700 bg-zinc-800/80 text-zinc-200"
+          : "border-zinc-800/70 bg-zinc-900/60 text-zinc-500"
+      }`}
+    >
+      {label}
+    </span>
   );
 }

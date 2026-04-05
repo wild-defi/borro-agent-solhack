@@ -270,6 +270,7 @@ function actionsToMask(actions: AllowedAction[]): number {
 
 function mapAccountToPolicy(account: RawPolicyAccount): PolicyConfig {
   return {
+    mode: "supervised",
     enabled: account.isEnabled ?? account.is_enabled ?? true,
     riskProfile: riskProfileFromCode(
       account.riskProfile ?? account.risk_profile ?? 1
