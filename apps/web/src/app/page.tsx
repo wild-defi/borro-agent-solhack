@@ -1,4 +1,4 @@
-import Link from "next/link";
+import LandingDashboardCta from "@/components/wallet/landing-dashboard-cta";
 
 export default function Home() {
   return (
@@ -7,13 +7,13 @@ export default function Home() {
       <div className="absolute inset-0 borro-noise-soft" />
 
       <div className="relative mx-auto flex min-h-[100svh] w-full max-w-7xl items-center px-6 py-10 sm:px-10 lg:px-16">
-        <section className="grid w-full items-center gap-14 lg:grid-cols-[minmax(0,34rem)_1fr]">
-          <div className="animate-borro-rise max-w-2xl">
+        <section className="grid w-full items-center gap-14 lg:grid-cols-[minmax(0,42rem)_1fr]">
+          <div className="animate-borro-rise max-w-none">
             <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.28em] text-zinc-500">
               Autonomous Yield + Risk Management
             </p>
 
-            <h1 className="mt-5 max-w-[10ch] font-[family-name:var(--font-mono)] text-5xl font-semibold tracking-[-0.05em] text-zinc-50 sm:text-6xl lg:text-7xl">
+            <h1 className="mt-5 whitespace-nowrap font-[family-name:var(--font-mono)] text-[clamp(3.5rem,9vw,6.6rem)] font-semibold leading-[0.92] tracking-[-0.05em] text-zinc-50">
               Borro Agent
             </h1>
 
@@ -24,12 +24,7 @@ export default function Home() {
             </p>
 
             <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-              <Link
-                href="/dashboard"
-                className="inline-flex h-12 items-center rounded-full bg-indigo-600 px-6 font-medium text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-[0_0_28px_rgba(99,102,241,0.35)]"
-              >
-                Open Dashboard
-              </Link>
+              <LandingDashboardCta />
 
               <p className="max-w-xs font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.18em] text-zinc-500">
                 Monitor liquidation risk now. Expand into carry trade automation

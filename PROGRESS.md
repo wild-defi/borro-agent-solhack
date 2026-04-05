@@ -259,6 +259,12 @@
 #### Priority 2 — If Time Allows
 - [x] **"Enable AI Guard" button** — on-chain policy creation/update from UI (user signs tx → PolicyAccount created or updated)
 - [x] **"View AI Reasoning" toggle** — show full AI input/output pipeline on decision card
+- [ ] **Real market signals for AI reasoning** — replace mocked `oracleConfidence` and `volatilityScore` with live data (~1h work):
+  - **Pyth oracle** (`@pythnetwork/hermes-client` already installed) — real SOL/USD confidence interval → replaces hardcoded `oracleConfidence: 0.95` in `position-service.ts`
+  - **CoinGecko SOL 24h change** — free, no API key, adds `solPriceChange24h` to snapshot → AI reasons "SOL down 8% in 24h, HF will keep falling"
+  - **Fear & Greed Index** (`api.alternative.me/fng/`) — bonus signal, 10 min to add, gives AI market-wide context
+  - Prompt update: include new fields in `buildDecisionUserPrompt()` so AI explicitly weighs them
+  - Impact: AI reason goes from generic to specific and verifiable by judges
 
 **Additional completed work:**
 - [x] Dashboard fetches existing on-chain `PolicyAccount` by PDA for the current wallet + obligation
@@ -268,6 +274,12 @@
 - [x] Setup-mode UX cleanup — users now configure policy first, fund buffer second, then enable the guard on-chain
 - [x] Active monitoring layout — once enabled on-chain, the dashboard switches into status / assessment / history mode
 - [x] Policy sync messaging improved — local draft, synced, saving, and insufficient devnet SOL states are now surfaced in the UI
+- [x] Autonomous monitoring mode on dashboard — users can choose `supervised` or `autonomous`, and Borro can auto-check plus auto-execute within policy limits while the session stays open
+- [x] Execution reasoning is now attached to history entries — each repay action can show the snapshot, raw model output, validated decision, and guardrail result used for that intervention
+- [x] Execution Check UX redesigned — guardrail outcomes now surface as user-facing states (`Passed`, `Adjusted`, `Blocked`) instead of low-level validation jargon
+- [x] Empty-buffer blocked state upgraded — when repayment is blocked by an empty safety buffer, the dashboard now recommends topping up the buffer instead of presenting a misleading `No Action Needed` fallback
+- [x] Executed assessment card simplified — removed the extra `What-if Comparison` panel and tightened the execution outcome presentation
+- [x] Dashboard typography refined — improved badge sizing, card headings, stat labels, and monospaced numeric hierarchy for better readability in demos
 
 **Current blocker / note:**
 - `Enable AI Guard On-Chain` on devnet still requires the connected wallet to hold a small amount of devnet SOL for rent and transaction fees. The UI now pre-checks this and shows a friendly error before Phantom simulation, but the wallet still needs funding to complete policy creation.
