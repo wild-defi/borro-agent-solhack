@@ -6,3 +6,13 @@ target/
 .env.local
 *.secret
 *.keypair.json
+
+# local-only private project materials
+docs/
+PROGRESS.md
+MVP_Backlog.md
+Borro_Agent_Architecture.md
+Signing_Custody_Models.md
+Borro Demo.mp4
+Borro pitch.mp4
+Demo.mp4
